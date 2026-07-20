@@ -196,6 +196,20 @@
   .reader::-webkit-scrollbar { width: 8px; }
   .reader::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
+  #stage:fullscreen {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: var(--bg);
+    border: none;
+    border-radius: 0;
+    padding: 6vh 10vw;
+  }
+  #stage:fullscreen .reader {
+    max-height: 80vh;
+    font-size: 28px;
+  }
+
   .word {
     position: relative;
     z-index: 1;
@@ -291,10 +305,11 @@
       <button id="playPauseBtn">Pause</button>
       <button class="ghost" id="restartBtn">Restart</button>
       <button class="ghost" id="backBtn">Edit text</button>
+      <button class="ghost" id="fullscreenBtn">Full screen</button>
       <div class="meta">
         <span id="liveWpm">300 wpm</span>
         <span id="chunkPos">0 / 0</span>
-        <span><kbd>space</kbd> play/pause &nbsp; <kbd>←</kbd> <kbd>→</kbd> seek</span>
+        <span><kbd>space</kbd> play/pause &nbsp; <kbd>←</kbd> <kbd>→</kbd> seek &nbsp; <kbd>F4</kbd> full screen</span>
       </div>
     </div>
   </div>
@@ -322,6 +337,7 @@
   const playPauseBtn = document.getElementById('playPauseBtn');
   const restartBtn = document.getElementById('restartBtn');
   const backBtn = document.getElementById('backBtn');
+  const fullscreenBtn = document.getElementById('fullscreenBtn');
   const liveWpm = document.getElementById('liveWpm');
   const chunkPos = document.getElementById('chunkPos');
 
@@ -599,6 +615,30 @@ The goal of a tool like this is not to turn every reader into a machine that con
     setupPanel.style.display = 'block';
   });
 
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      const request = stagePanel.requestFullscreen || stagePanel.webkitRequestFullscreen;
+      if (request) request.call(stagePanel).catch(() => {});
+    } else if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    }
+  }
+
+  fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+  document.addEventListener('fullscreenchange', () => {
+    fullscreenBtn.textContent = document.fullscreenElement === stagePanel ? 'Exit full screen' : 'Full screen';
+    // Font size and layout change between windowed/full screen, so the
+    // sliding highlight needs an instant (non-sliding) reposition.
+    if (chunks.length) {
+      const [start, end] = chunks[currentChunk];
+      highlightBoxes.forEach(b => b.dataset.active = '0');
+      positionHighlight(start, end);
+    }
+  });
+
   window.addEventListener('resize', () => {
     if (!stagePanel.classList.contains('active') || !chunks.length) return;
     const [start, end] = chunks[currentChunk];
@@ -615,6 +655,9 @@ The goal of a tool like this is not to turn every reader into a machine that con
       seek(1);
     } else if (e.code === 'ArrowLeft') {
       seek(-1);
+    } else if (e.code === 'F4') {
+      e.preventDefault();
+      toggleFullscreen();
     }
   });
 

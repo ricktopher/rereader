@@ -7,7 +7,7 @@ Stop pretending to read fast. Read so you pay attention because attention is all
 2. Light mode.
 3. [x] Improve color.
 4. Color therapy.
-5. Full screen mode
+5. [x] Full screen mode
 
 # Cleaner backend features list
 1. Represent using a django server
@@ -17,8 +17,9 @@ Stop pretending to read fast. Read so you pay attention because attention is all
 
 # Gamification features list
 1. Account mode.
-2. Deploy to a server.
+2. Points
 3. Gamify and add leaderboard.
+4. Goals to reach.
 
 
 # User reading convenience features list
