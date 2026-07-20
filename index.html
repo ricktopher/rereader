@@ -6,15 +6,19 @@
 <title>Rereader</title>
 <style>
   :root {
-    --bg: #0f1115;
-    --panel: #171a21;
-    --panel-2: #1e222b;
-    --border: #2a2f3a;
-    --text: #e8e9ed;
-    --text-dim: #6b7280;
-    --accent: #ffb020;
-    --accent-dim: #7a5a1a;
-    --danger: #e85d5d;
+    --bg: #15171c;
+    --panel: #1b1e25;
+    --panel-2: #21242c;
+    --border: #2c303a;
+    --text: #dadce2;
+    --text-dim: #71767f;
+    --accent: #cf9d5c;
+    --accent-hover: #ddad6f;
+    --accent-dim: #4d3d24;
+    --accent-text: #241b0a;
+    --danger: #c97b76;
+    --word-unread: #4a4e58;
+    --word-read: #9297a1;
     --radius: 10px;
   }
   * { box-sizing: border-box; }
@@ -115,7 +119,7 @@
     border-color: var(--accent);
     color: #1a1200;
   }
-  button.primary:hover { background: #ffc04d; }
+  button.primary:hover { background: var(--accent-hover); }
   button.ghost {
     background: transparent;
     color: var(--text-dim);
@@ -152,6 +156,7 @@
   }
 
   .reader {
+    position: relative;
     max-height: 55vh;
     overflow-y: auto;
     font-size: 21px;
@@ -163,17 +168,32 @@
   .reader::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
   .word {
-    color: #4b4f5a;
-    transition: color 0.15s ease;
+    position: relative;
+    z-index: 1;
+    color: var(--word-unread);
+    transition: color 0.35s ease;
   }
-  .word.read { color: #8a8d97; }
-  .word.current {
-    color: #14161a;
+  .word.read { color: var(--word-read); }
+  .word.current { color: var(--accent-text); }
+
+  .highlight-box {
+    position: absolute;
+    z-index: 0;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    opacity: 0;
     background: var(--accent);
     border-radius: 4px;
-    padding: 1px 2px;
-    margin: -1px -2px;
+    pointer-events: none;
+    transition: left 0.18s cubic-bezier(.4,0,.2,1),
+                top 0.18s cubic-bezier(.4,0,.2,1),
+                width 0.18s cubic-bezier(.4,0,.2,1),
+                height 0.18s cubic-bezier(.4,0,.2,1),
+                opacity 0.15s ease;
   }
+  .highlight-box.snap { transition: opacity 0.15s ease; }
 
   .stage-controls {
     display: flex;
@@ -284,6 +304,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
   let chunkStartTime = 0;
   let currentDuration = 0;
   let pausedRemaining = null; // ms left in the in-progress chunk, or null to start fresh
+  let highlightBoxes = []; // pool of floating highlight divs, reused across chunks
 
   function updateWpmLabel() { wpmVal.textContent = wpmSlider.value; }
   function updateChunkLabel() { chunkVal.textContent = chunkSlider.value; }
@@ -337,6 +358,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
 
   function renderReader() {
     reader.innerHTML = '';
+    highlightBoxes = [];
     const frag = document.createDocumentFragment();
     words.forEach((w, idx) => {
       const span = document.createElement('span');
@@ -348,6 +370,67 @@ The goal of a tool like this is not to turn every reader into a machine that con
     reader.appendChild(frag);
   }
 
+  function getHighlightBox(i) {
+    if (!highlightBoxes[i]) {
+      const box = document.createElement('div');
+      box.className = 'highlight-box';
+      box.dataset.active = '0';
+      reader.appendChild(box);
+      highlightBoxes[i] = box;
+    }
+    return highlightBoxes[i];
+  }
+
+  // Slide (or, for a freshly-activated box, snap) the highlight over the
+  // word span range [start, end]. Uses Range.getClientRects() so a chunk
+  // that wraps across a line break gets one glowing segment per line,
+  // instead of one box stretching across the gap.
+  function positionHighlight(start, end) {
+    const spans = reader.querySelectorAll('.word');
+    const startSpan = spans[start];
+    const endSpan = spans[end];
+    if (!startSpan || !endSpan) return;
+
+    const range = document.createRange();
+    range.setStartBefore(startSpan);
+    range.setEndAfter(endSpan);
+    const rects = Array.from(range.getClientRects());
+    const readerRect = reader.getBoundingClientRect();
+
+    rects.forEach((r, i) => {
+      const box = getHighlightBox(i);
+      const left = r.left - readerRect.left + reader.scrollLeft - 2;
+      const top = r.top - readerRect.top + reader.scrollTop - 1;
+      const width = r.width + 4;
+      const height = r.height + 2;
+
+      if (box.dataset.active !== '1') {
+        // Reactivating a hidden box: place it instantly, no slide-in from
+        // its stale last position.
+        box.classList.add('snap');
+        box.style.left = `${left}px`;
+        box.style.top = `${top}px`;
+        box.style.width = `${width}px`;
+        box.style.height = `${height}px`;
+        void box.offsetWidth; // force reflow so the snap applies before we remove it
+        box.classList.remove('snap');
+      } else {
+        box.style.left = `${left}px`;
+        box.style.top = `${top}px`;
+        box.style.width = `${width}px`;
+        box.style.height = `${height}px`;
+      }
+      box.style.opacity = '1';
+      box.dataset.active = '1';
+    });
+
+    // Hide any pool boxes left over from a wider chunk.
+    for (let i = rects.length; i < highlightBoxes.length; i++) {
+      highlightBoxes[i].style.opacity = '0';
+      highlightBoxes[i].dataset.active = '0';
+    }
+  }
+
   function highlightChunk(idx) {
     const [start, end] = chunks[idx];
     const spans = reader.querySelectorAll('.word');
@@ -356,6 +439,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
       if (i < start) s.classList.add('read');
       else if (i >= start && i <= end) s.classList.add('current');
     });
+    positionHighlight(start, end);
     const firstCurrent = reader.querySelector('.word.current');
     if (firstCurrent) firstCurrent.scrollIntoView({ block: 'center', behavior: 'smooth' });
 
@@ -445,6 +529,13 @@ The goal of a tool like this is not to turn every reader into a machine that con
     playing = false;
     stagePanel.classList.remove('active');
     setupPanel.style.display = 'block';
+  });
+
+  window.addEventListener('resize', () => {
+    if (!stagePanel.classList.contains('active') || !chunks.length) return;
+    const [start, end] = chunks[currentChunk];
+    highlightBoxes.forEach(b => b.dataset.active = '0'); // force instant reposition, no slide
+    positionHighlight(start, end);
   });
 
   document.addEventListener('keydown', (e) => {
