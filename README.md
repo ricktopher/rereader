@@ -5,13 +5,14 @@ Stop pretending to read fast. Read so you pay attention because attention is all
 # Reading experience Feature list
 1. Help icons.
 2. Light mode.
-3. Improve color.
+3. [x] Improve color.
 4. Color therapy.
-
+5. Full screen mode
 
 # Cleaner backend features list
 1. Represent using a django server
 2. Deploy to heroku
+3. Obfuscate the JS so that it can't be simply scraped.
 
 
 # Gamification features list

@@ -93,6 +93,35 @@
     accent-color: var(--accent);
   }
 
+  .presets {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .preset-btn {
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text-dim);
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .preset-btn span {
+    font-weight: 400;
+    opacity: 0.8;
+  }
+  .preset-btn:hover { color: var(--text); border-color: #3a4150; }
+  .preset-btn.active {
+    color: var(--accent-text);
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
   .actions {
     display: flex;
     gap: 10px;
@@ -230,7 +259,12 @@
     <div class="row">
       <div class="field">
         <label>Speed <span class="val"><span id="wpmVal">300</span> wpm</span></label>
-        <input type="range" id="wpm" min="100" max="900" step="10" value="300">
+        <input type="range" id="wpm" min="60" max="900" step="10" value="300">
+        <div class="presets" id="wpmPresets">
+          <button type="button" class="preset-btn" data-wpm="60">Focus trainer <span>60 wpm</span></button>
+          <button type="button" class="preset-btn" data-wpm="120">Audiobook <span>120 wpm</span></button>
+          <button type="button" class="preset-btn" data-wpm="400">Maniac <span>400 wpm</span></button>
+        </div>
       </div>
       <div class="field">
         <label>Chunk size <span class="val"><span id="chunkVal">3</span> word(s)</span></label>
@@ -241,6 +275,7 @@
     <div class="actions">
       <button class="primary" id="goBtn">Go</button>
       <button class="ghost" id="sampleBtn">Load sample text</button>
+      <button class="ghost" id="clearBtn">Clear text</button>
       <div class="meta">
         <span id="wordCount">0 words</span>
         <span id="estTime">~0:00</span>
@@ -276,6 +311,9 @@
   const estTimeEl = document.getElementById('estTime');
   const goBtn = document.getElementById('goBtn');
   const sampleBtn = document.getElementById('sampleBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const wpmPresets = document.getElementById('wpmPresets');
+  const presetBtns = Array.from(wpmPresets.querySelectorAll('.preset-btn'));
 
   const setupPanel = document.getElementById('setup');
   const stagePanel = document.getElementById('stage');
@@ -308,6 +346,9 @@ The goal of a tool like this is not to turn every reader into a machine that con
 
   function updateWpmLabel() { wpmVal.textContent = wpmSlider.value; }
   function updateChunkLabel() { chunkVal.textContent = chunkSlider.value; }
+  function updatePresetActiveState() {
+    presetBtns.forEach(b => b.classList.toggle('active', b.dataset.wpm === wpmSlider.value));
+  }
 
   function tokenize(text) {
     // split keeping trailing whitespace/punctuation attached to each word
@@ -330,10 +371,20 @@ The goal of a tool like this is not to turn every reader into a machine that con
     estTimeEl.textContent = `~${m}:${s.toString().padStart(2, '0')}`;
   }
 
-  wpmSlider.addEventListener('input', () => { updateWpmLabel(); updateCounts(); });
+  wpmSlider.addEventListener('input', () => { updateWpmLabel(); updateCounts(); updatePresetActiveState(); });
   chunkSlider.addEventListener('input', () => { updateChunkLabel(); updateCounts(); });
   inputText.addEventListener('input', updateCounts);
   sampleBtn.addEventListener('click', () => { inputText.value = SAMPLE; updateCounts(); });
+  clearBtn.addEventListener('click', () => { inputText.value = ''; updateCounts(); inputText.focus(); });
+
+  presetBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      wpmSlider.value = btn.dataset.wpm;
+      updateWpmLabel();
+      updateCounts();
+      updatePresetActiveState();
+    });
+  });
 
   function buildChunks() {
     words = tokenize(inputText.value);
@@ -394,15 +445,32 @@ The goal of a tool like this is not to turn every reader into a machine that con
     const range = document.createRange();
     range.setStartBefore(startSpan);
     range.setEndAfter(endSpan);
-    const rects = Array.from(range.getClientRects());
+    const rawRects = Array.from(range.getClientRects()).filter(r => r.width > 0 && r.height > 0);
     const readerRect = reader.getBoundingClientRect();
 
-    rects.forEach((r, i) => {
+    // Each word is its own positioned span, so getClientRects() returns one
+    // rect per word instead of one per visual line. Merge rects that share
+    // a line into a single contiguous box so a multi-word chunk highlights
+    // as one unbroken bar instead of several separate/gapped boxes.
+    const lines = [];
+    rawRects.forEach(r => {
+      const line = lines.find(l => Math.abs(l.top - r.top) < 2);
+      if (line) {
+        line.left = Math.min(line.left, r.left);
+        line.right = Math.max(line.right, r.right);
+        line.top = Math.min(line.top, r.top);
+        line.bottom = Math.max(line.bottom, r.bottom);
+      } else {
+        lines.push({ left: r.left, right: r.right, top: r.top, bottom: r.bottom });
+      }
+    });
+
+    lines.forEach((l, i) => {
       const box = getHighlightBox(i);
-      const left = r.left - readerRect.left + reader.scrollLeft - 2;
-      const top = r.top - readerRect.top + reader.scrollTop - 1;
-      const width = r.width + 4;
-      const height = r.height + 2;
+      const left = l.left - readerRect.left + reader.scrollLeft - 2;
+      const top = l.top - readerRect.top + reader.scrollTop - 1;
+      const width = Math.max(0, (l.right - l.left) - 1);
+      const height = (l.bottom - l.top) + 2;
 
       if (box.dataset.active !== '1') {
         // Reactivating a hidden box: place it instantly, no slide-in from
@@ -425,7 +493,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
     });
 
     // Hide any pool boxes left over from a wider chunk.
-    for (let i = rects.length; i < highlightBoxes.length; i++) {
+    for (let i = lines.length; i < highlightBoxes.length; i++) {
       highlightBoxes[i].style.opacity = '0';
       highlightBoxes[i].dataset.active = '0';
     }
@@ -553,6 +621,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
   updateWpmLabel();
   updateChunkLabel();
   updateCounts();
+  updatePresetActiveState();
 })();
 </script>
 </body>
