@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1a1814">
 <title>Rereader</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -50,7 +51,11 @@
     <div class="row">
       <div class="field">
         <label>Speed <span class="val"><span id="wpmVal">300</span> wpm</span></label>
-        <input type="range" id="wpm" min="60" max="900" step="10" value="300">
+        <div class="slider-row">
+          <button type="button" class="step-btn" id="wpmMinus" aria-label="Slower by 10 wpm">&minus;</button>
+          <input type="range" id="wpm" min="60" max="900" step="10" value="300" aria-label="Speed in words per minute">
+          <button type="button" class="step-btn" id="wpmPlus" aria-label="Faster by 10 wpm">+</button>
+        </div>
         <div class="presets" id="wpmPresets">
           <button type="button" class="preset-btn" data-wpm="60">Focus trainer <span>60 wpm</span></button>
           <button type="button" class="preset-btn" data-wpm="120">Audiobook <span>120 wpm</span></button>
@@ -58,8 +63,13 @@
         </div>
       </div>
       <div class="field">
-        <label>Chunk size <span class="val"><span id="chunkVal">3</span> word(s)</span></label>
-        <input type="range" id="chunkSize" min="1" max="8" step="1" value="3">
+        <label id="chunkLabel">Chunk size</label>
+        <div class="stepper" role="group" aria-labelledby="chunkLabel">
+          <button type="button" class="step-btn" id="chunkMinus" aria-label="Fewer words per chunk">&minus;</button>
+          <output class="step-val" id="chunkVal" aria-live="polite">3 words</output>
+          <button type="button" class="step-btn" id="chunkPlus" aria-label="More words per chunk">+</button>
+        </div>
+        <input type="hidden" id="chunkSize" value="3">
       </div>
     </div>
 
@@ -87,7 +97,7 @@
       <div class="meta">
         <span id="liveWpm">300 wpm</span>
         <span id="chunkPos">0 / 0</span>
-        <span><kbd>space</kbd> play/pause &nbsp; <kbd>←</kbd> <kbd>→</kbd> seek &nbsp; <kbd>F4</kbd> full screen</span>
+        <span class="kbd-hints"><kbd>space</kbd> play/pause &nbsp; <kbd>←</kbd> <kbd>→</kbd> seek &nbsp; <kbd>F4</kbd> full screen</span>
       </div>
     </div>
   </div>

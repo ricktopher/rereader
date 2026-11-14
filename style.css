@@ -1,20 +1,27 @@
 :root {
-  --bg: #15171c;
-  --panel: #1b1e25;
-  --panel-2: #21242c;
-  --border: #2c303a;
-  --text: #dadce2;
-  --text-dim: #71767f;
-  --accent: #a2b8d2;
-  --accent-hover: #b4c7dc;
-  --accent-dim: #354456;
-  --accent-text: #17212e;
-  --danger: #c97b76;
-  --word-unread: #4a4e58;
-  --word-read: #9297a1;
+  /* Warm, low-blue dark palette tuned for long reading sessions:
+     no pure white or pure black, text >= 4.5:1, and a soft amber highlight
+     instead of a bright block so the moving chunk doesn't glare. */
+  --bg: #1a1814;
+  --panel: #211e19;
+  --panel-2: #29251f;
+  --border: #38332b;
+  --border-hover: #4a4339;
+  --text: #e0d6c6;
+  --text-dim: #9a907f;
+  --accent: #d4b483;
+  --accent-hover: #dfc296;
+  --accent-dim: #5b4a33;
+  --accent-text: #1f1a12;
+  --danger: #d99a85;
+  --word-unread: #8f8574;
+  --word-read: #cfc4b2;
+  --highlight: #75603f;
+  --highlight-text: #f8eedc;
   --radius: 10px;
 }
 * { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 html, body {
   margin: 0;
   padding: 0;
@@ -86,6 +93,55 @@ input[type="range"] {
   accent-color: var(--accent);
 }
 
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.slider-row input[type="range"] { flex: 1; min-width: 0; }
+.slider-row button.step-btn {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+button.step-btn {
+  width: 44px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+}
+button.step-btn:hover:not(:disabled) { background: var(--border); }
+.step-val {
+  min-width: 84px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  padding: 0 8px;
+  line-height: 40px;
+}
+
 .presets {
   display: flex;
   gap: 6px;
@@ -108,7 +164,7 @@ input[type="range"] {
   font-weight: 400;
   opacity: 0.8;
 }
-.preset-btn:hover { color: var(--text); border-color: #3a4150; }
+.preset-btn:hover { color: var(--text); border-color: var(--border-hover); }
 .preset-btn.active {
   color: var(--accent-text);
   background: var(--accent);
@@ -134,12 +190,12 @@ button {
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, opacity 0.15s;
 }
-button:hover { border-color: #3a4150; }
+button:hover { border-color: var(--border-hover); }
 button:disabled { opacity: 0.4; cursor: not-allowed; }
 button.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #1a1200;
+  color: var(--accent-text);
 }
 button.primary:hover { background: var(--accent-hover); }
 button.ghost {
@@ -210,7 +266,7 @@ button.ghost:hover { color: var(--text); }
   transition: color 0.35s ease;
 }
 .word.read { color: var(--word-read); }
-.word.current { color: var(--accent-text); }
+.word.current { color: var(--highlight-text); }
 
 .highlight-box {
   position: absolute;
@@ -220,7 +276,7 @@ button.ghost:hover { color: var(--text); }
   width: 0;
   height: 0;
   opacity: 0;
-  background: var(--accent);
+  background: var(--highlight);
   border-radius: 4px;
   pointer-events: none;
   transition: left 0.18s cubic-bezier(.4,0,.2,1),
@@ -235,6 +291,7 @@ button.ghost:hover { color: var(--text); }
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
   margin-top: 18px;
 }
 .stage-controls .meta { margin-left: 0; }
@@ -367,3 +424,68 @@ button.library-item:hover { border-color: var(--accent-dim); background: var(--p
 }
 button.library-remove { font-size: 18px; padding: 0 12px; }
 .library-cta { font-size: 12px; font-weight: 700; color: var(--accent); margin-top: 4px; }
+
+/* ---------- Touch devices ---------- */
+button, select, input, textarea { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+@media (hover: none) {
+  .kbd-hints { display: none; }
+  /* hover styles stick after a tap on phones; keep them off */
+  button.choice:hover:not(:disabled) { transform: none; background: var(--panel); border-color: var(--border); }
+  button.library-item:hover { background: var(--panel); border-color: var(--border); }
+  button.ghost:hover { color: var(--text-dim); }
+}
+
+/* ---------- Phones ---------- */
+@media (max-width: 600px) {
+  .wrap { padding: 20px 16px 40px; }
+  h1 { font-size: 18px; }
+  .subtitle { margin-bottom: 16px; }
+  .panel { padding: 16px; }
+
+  /* 16px+ stops iOS zooming in when a field is focused */
+  textarea, #partSelect { font-size: 16px; }
+  textarea { min-height: 38vh; }
+
+  .row { gap: 20px; }
+  .field { min-width: 100%; }
+  input[type="range"] { height: 32px; }
+  .presets { gap: 8px; }
+  .preset-btn { flex: 1 1 0; padding: 8px 6px; font-size: 12px; min-height: 40px; }
+  .preset-btn span { display: block; }
+
+  /* comfortable tap targets */
+  button { min-height: 44px; }
+  .book-nav button.ghost { min-width: 44px; }
+  .stepper { display: flex; }
+  .stepper .step-val { flex: 1; }
+  button.step-btn { height: 44px; width: 56px; }
+  .slider-row button.step-btn { width: 44px; height: 44px; }
+  .step-val { line-height: 44px; }
+
+  .actions { gap: 8px; }
+  .actions button.primary { flex: 1 1 100%; }
+  .actions .meta { margin-left: 0; width: 100%; justify-content: space-between; }
+
+  .book-bar { gap: 8px; }
+  .book-title { flex-basis: 100%; white-space: normal; }
+  .book-nav { flex-basis: 100%; }
+
+  .landing { gap: 12px; grid-template-columns: 1fr; }
+  button.choice { padding: 20px 18px; }
+  .library-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* While reading, give the text the whole screen. */
+  body.reading .wrap { padding-top: 12px; padding-bottom: 12px; }
+  body.reading h1, body.reading .subtitle, body.reading .book-status { display: none; }
+  body.reading #stage { padding: 14px; margin-bottom: 0; }
+  .reader {
+    font-size: 19px;
+    line-height: 1.75;
+    max-height: calc(100vh - 190px);
+    max-height: calc(100dvh - 190px);
+  }
+  .stage-controls { gap: 8px; margin-top: 14px; }
+  #playPauseBtn { flex: 1 1 100%; order: -1; }
+  .stage-controls button.ghost { flex: 1 1 auto; padding: 10px 6px; white-space: nowrap; }
+  .stage-controls .meta { width: 100%; justify-content: space-between; }
+}

@@ -42,8 +42,34 @@ The goal of a tool like this is not to turn every reader into a machine that con
   let pausedRemaining = null; // ms left in the in-progress chunk, or null to start fresh
   let highlightBoxes = []; // pool of floating highlight divs, reused across chunks
 
-  function updateWpmLabel() { wpmVal.textContent = wpmSlider.value; }
-  function updateChunkLabel() { chunkVal.textContent = chunkSlider.value; }
+  const wpmMinus = document.getElementById('wpmMinus');
+  const wpmPlus = document.getElementById('wpmPlus');
+  function updateWpmLabel() {
+    wpmVal.textContent = wpmSlider.value;
+    const v = parseInt(wpmSlider.value, 10);
+    wpmMinus.disabled = v <= parseInt(wpmSlider.min, 10);
+    wpmPlus.disabled = v >= parseInt(wpmSlider.max, 10);
+  }
+  function stepWpm(delta) {
+    const min = parseInt(wpmSlider.min, 10), max = parseInt(wpmSlider.max, 10);
+    wpmSlider.value = String(Math.max(min, Math.min(max, parseInt(wpmSlider.value, 10) + delta)));
+    wpmSlider.dispatchEvent(new Event('input')); // same path as dragging the slider
+  }
+  const CHUNK_MIN = 1, CHUNK_MAX = 8;
+  const chunkMinus = document.getElementById('chunkMinus');
+  const chunkPlus = document.getElementById('chunkPlus');
+  function updateChunkLabel() {
+    const n = parseInt(chunkSlider.value, 10);
+    chunkVal.textContent = `${n} word${n === 1 ? '' : 's'}`;
+    chunkMinus.disabled = n <= CHUNK_MIN;
+    chunkPlus.disabled = n >= CHUNK_MAX;
+  }
+  function stepChunk(delta) {
+    const n = Math.max(CHUNK_MIN, Math.min(CHUNK_MAX, parseInt(chunkSlider.value, 10) + delta));
+    chunkSlider.value = String(n);
+    updateChunkLabel();
+    updateCounts();
+  }
   function updatePresetActiveState() {
     presetBtns.forEach(b => b.classList.toggle('active', b.dataset.wpm === wpmSlider.value));
   }
@@ -70,7 +96,10 @@ The goal of a tool like this is not to turn every reader into a machine that con
   }
 
   wpmSlider.addEventListener('input', () => { updateWpmLabel(); updateCounts(); updatePresetActiveState(); });
-  chunkSlider.addEventListener('input', () => { updateChunkLabel(); updateCounts(); });
+  wpmMinus.addEventListener('click', () => stepWpm(-10));
+  wpmPlus.addEventListener('click', () => stepWpm(10));
+  chunkMinus.addEventListener('click', () => stepChunk(-1));
+  chunkPlus.addEventListener('click', () => stepChunk(1));
   inputText.addEventListener('input', updateCounts);
   sampleBtn.addEventListener('click', () => { inputText.value = SAMPLE; updateCounts(); });
   clearBtn.addEventListener('click', () => { inputText.value = ''; updateCounts(); inputText.focus(); });
@@ -268,7 +297,12 @@ The goal of a tool like this is not to turn every reader into a machine that con
     pausedRemaining = null;
     liveWpm.textContent = `${wpmSlider.value} wpm`;
     showView('stage');
-    play();
+    // Wait for the reader to press Play: show the first chunk, paused.
+    clearTimeout(timer);
+    playing = false;
+    playPauseBtn.textContent = 'Play';
+    backBtn.hidden = false;
+    highlightChunk(currentChunk);
   }
 
   goBtn.addEventListener('click', startSession);
@@ -310,6 +344,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
   let pastedText = ''; // kept separately so a book passage never overwrites what you pasted
 
   function showView(name) {
+    document.body.classList.toggle('reading', name === 'stage');
     landing.hidden = name !== 'landing';
     setupPanel.hidden = name !== 'setup';
     stagePanel.classList.toggle('active', name === 'stage');
@@ -572,6 +607,8 @@ The goal of a tool like this is not to turn every reader into a machine that con
   }
 
   fullscreenBtn.addEventListener('click', toggleFullscreen);
+  // iPhone Safari (and some embedded browsers) can't put a page element in full screen.
+  if (!(document.fullscreenEnabled || document.webkitFullscreenEnabled)) fullscreenBtn.hidden = true;
 
   document.addEventListener('fullscreenchange', () => {
     fullscreenBtn.textContent = document.fullscreenElement === stagePanel ? 'Exit full screen' : 'Full screen';
