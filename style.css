@@ -16,8 +16,10 @@
   --danger: #d99a85;
   --word-unread: #8f8574;
   --word-read: #cfc4b2;
-  --highlight: #75603f;
-  --highlight-text: #f8eedc;
+  /* Current-chunk highlight: an underline that slides under the words. */
+  --highlight: #d4b483;         /* underline colour */
+  --highlight-thickness: 2px;   /* underline thickness */
+  --highlight-text: #f3e6cf;    /* colour of the current words */
   --radius: 10px;
 }
 * { box-sizing: border-box; }
@@ -283,8 +285,7 @@ button.ghost:hover { color: var(--text); }
   width: 0;
   height: 0;
   opacity: 0;
-  background: var(--highlight);
-  border-radius: 4px;
+  background: none;
   pointer-events: none;
   transition: left 0.18s cubic-bezier(.4,0,.2,1),
               top 0.18s cubic-bezier(.4,0,.2,1),
@@ -293,6 +294,17 @@ button.ghost:hover { color: var(--text); }
               opacity 0.15s ease;
 }
 .highlight-box.snap { transition: opacity 0.15s ease; }
+/* the box spans the words; only its bottom edge is drawn, as the underline */
+.highlight-box::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  right: 0;
+  bottom: 0;
+  height: var(--highlight-thickness);
+  border-radius: var(--highlight-thickness);
+  background: var(--highlight);
+}
 
 .stage-controls {
   display: flex;
