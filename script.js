@@ -242,6 +242,15 @@ The goal of a tool like this is not to turn every reader into a machine that con
     chunkPos.textContent = `${idx + 1} / ${chunks.length}`;
   }
 
+  // ---- Habit tracking: count only time spent actually playing, plus words in finished chunks ----
+  function logPlayTime() {
+    if (!playing) return;
+    // cap at the chunk's own length so a throttled background timer can't inflate the time.
+    // Callers restart the chunk clock afterwards (showAndSchedule), so nothing is counted twice.
+    const ms = Math.min(performance.now() - chunkStartTime, currentDuration);
+    if (ms > 0) window.Habits.record(ms, 0);
+  }
+
   function showAndSchedule() {
     highlightChunk(currentChunk);
     const dur = pausedRemaining != null ? pausedRemaining : chunkDurations[currentChunk];
@@ -249,6 +258,9 @@ The goal of a tool like this is not to turn every reader into a machine that con
     currentDuration = dur;
     chunkStartTime = performance.now();
     timer = setTimeout(() => {
+      logPlayTime();
+      const [cs, ce] = chunks[currentChunk];
+      window.Habits.record(0, ce - cs + 1);
       currentChunk++;
       if (currentChunk >= chunks.length) {
         playing = false;
@@ -272,6 +284,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
   }
 
   function pause() {
+    logPlayTime();
     playing = false;
     playPauseBtn.textContent = 'Play';
     backBtn.hidden = false;
@@ -281,6 +294,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
   }
 
   function seek(delta) {
+    logPlayTime();
     clearTimeout(timer);
     currentChunk = Math.max(0, Math.min(chunks.length - 1, currentChunk + delta));
     pausedRemaining = null;
@@ -320,6 +334,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
   });
 
   restartBtn.addEventListener('click', () => {
+    logPlayTime();
     clearTimeout(timer);
     currentChunk = 0;
     pausedRemaining = null;
@@ -344,14 +359,43 @@ The goal of a tool like this is not to turn every reader into a machine that con
   let pastedText = ''; // kept separately so a book passage never overwrites what you pasted
 
   function showView(name) {
+    if (name !== 'stage' && playing) pause();
     document.body.classList.toggle('reading', name === 'stage');
     landing.hidden = name !== 'landing';
     setupPanel.hidden = name !== 'setup';
     stagePanel.classList.toggle('active', name === 'stage');
-    if (name === 'landing') renderLibrary();
+    if (name === 'landing') { renderLibrary(); renderHabits(); }
   }
 
+  const habitsEl = document.getElementById('habits');
+  function renderHabits() { window.Habits.render(habitsEl); }
+  let habitsResize = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(habitsResize);
+    habitsResize = setTimeout(() => { if (!landing.hidden) renderHabits(); }, 150);
+  });
+
+  // Pause when the tab/app goes to the background, so the stats only count real reading.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && playing) pause();
+  });
+
+  // Celebrate reaching the daily goal mid-passage.
+  const toast = document.getElementById('toast');
+  let toastTimer = null;
+  window.Habits.onGoalReached(s => {
+    toast.textContent = `🔥 Daily goal reached! ${s.count} day streak`;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 4000);
+  });
+
   // Saved books on the landing page, with how far you've got in each.
+  const TRASH_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>' +
+    '<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+
   let libraryRender = 0;
   async function renderLibrary() {
     const token = ++libraryRender;
@@ -396,7 +440,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
       remove.className = 'ghost library-remove';
       remove.setAttribute('aria-label', `Forget ${title}`);
       remove.title = 'Forget this book';
-      remove.textContent = '×';
+      remove.innerHTML = TRASH_ICON;
       remove.addEventListener('click', () => {
         try { localStorage.removeItem(positionKey(title)); } catch (e) {}
         renderLibrary();
@@ -437,7 +481,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
       remove.className = 'ghost library-remove';
       remove.setAttribute('aria-label', `Remove ${b.title}`);
       remove.title = 'Remove from your books';
-      remove.textContent = '×';
+      remove.innerHTML = TRASH_ICON;
       remove.addEventListener('click', async () => {
         if (!confirm(`Remove "${b.title}" from your books? Your reading position will be forgotten.`)) return;
         await window.Library.remove(b.id);
@@ -589,6 +633,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
 
   nextPassageBtn.addEventListener('click', () => {
     if (!book) return;
+    logPlayTime();
     clearTimeout(timer);
     playing = false;
     showPart(parseInt(partSelect.value, 10) + 1);
@@ -648,4 +693,5 @@ The goal of a tool like this is not to turn every reader into a machine that con
   updateCounts();
   updatePresetActiveState();
   renderLibrary();
+  renderHabits();
 })();

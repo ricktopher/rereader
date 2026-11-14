@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#1a1814">
 <title>Rereader</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,300;0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
@@ -12,25 +14,26 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Rereader</h1>
-  <p class="subtitle">Pick something to read, set your pace, and let the highlight pull your eyes through it.</p>
+  <header class="app-header">
+    <h1><img src="icon.svg" alt="" class="app-icon" width="32" height="32">Rereader</h1>
+    <p class="subtitle">Pick something to read, set your pace, and let the highlight pull your eyes through it.</p>
+  </header>
 
   <div class="landing" id="landing">
-    <button type="button" class="choice" id="pasteChoice">
-      <span class="choice-icon" aria-hidden="true">&#x270E;</span>
-      <span class="choice-title">Paste text</span>
-      <span class="choice-desc">An article, an essay, a few pages of anything. Around 1000 words works well.</span>
-    </button>
-    <button type="button" class="choice" id="bookChoice">
-      <span class="choice-icon" aria-hidden="true">&#x1F56E;</span>
-      <span class="choice-title">Open a book</span>
-      <span class="choice-desc">An .epub or .txt file. It's split into ~1000-word passages and remembers where you left off.</span>
-    </button>
-    <input type="file" id="bookFile" accept=".epub,.txt,application/epub+zip,text/plain" hidden>
     <section class="library" id="library" hidden>
       <h2>Your books</h2>
       <ul id="libraryList"></ul>
     </section>
+    <div class="choices">
+      <button type="button" class="choice" id="pasteChoice" title="An article, an essay, a few pages of anything. Around 1000 words works well.">
+        <span class="choice-icon" aria-hidden="true">&#x270E;</span> Paste text
+      </button>
+      <button type="button" class="choice" id="bookChoice" title="An .epub or .txt file, split into ~1000-word passages. Remembers where you left off.">
+        <span class="choice-icon" aria-hidden="true">&#x1F56E;</span> Open a book
+      </button>
+    </div>
+    <input type="file" id="bookFile" accept=".epub,.txt,application/epub+zip,text/plain" hidden>
+    <section class="habits" id="habits" aria-label="Reading habit"></section>
   </div>
   <p class="hint book-status" id="bookStatus" hidden></p>
 
@@ -86,6 +89,7 @@
   </div>
 
   <div class="panel" id="stage">
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
     <div class="reader" id="reader"></div>
     <div class="stage-controls">
@@ -105,6 +109,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="book.js"></script>
+<script src="habits.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

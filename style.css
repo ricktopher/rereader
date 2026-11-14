@@ -34,16 +34,23 @@ html, body {
   margin: 0 auto;
   padding: 32px 20px 80px;
 }
+.app-header { text-align: center; margin-bottom: 24px; }
 h1 {
-  font-size: 20px;
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 22px;
+  font-weight: 700;
   letter-spacing: -0.01em;
-  margin: 0 0 4px;
+  margin: 0 0 6px;
 }
+.app-icon { width: 32px; height: 32px; border-radius: 8px; display: block; }
 .subtitle {
   color: var(--text-dim);
   font-size: 13px;
-  margin: 0 0 24px;
+  margin: 0 auto;
+  max-width: 460px;
+  line-height: 1.5;
 }
 .panel {
   background: var(--panel);
@@ -352,38 +359,33 @@ kbd {
 .book-status.error { color: var(--danger); }
 
 .landing {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 16px;
   margin-bottom: 16px;
 }
+.choices { display: flex; gap: 8px; flex-wrap: wrap; }
 button.choice {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
-  text-align: left;
-  padding: 28px 24px;
-  background: var(--panel);
+  padding: 8px 14px;
+  background: transparent;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  font-weight: 400;
-  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+  border-radius: 999px;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+  transition: border-color 0.15s, color 0.15s;
 }
-button.choice:hover:not(:disabled) {
-  border-color: var(--accent-dim);
-  background: var(--panel-2);
-  transform: translateY(-1px);
-}
+button.choice:hover:not(:disabled) { border-color: var(--accent-dim); color: var(--text); }
 button.choice:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.choice-icon { font-size: 22px; color: var(--accent); line-height: 1; }
-.choice-title { font-size: 17px; font-weight: 700; color: var(--text); }
-.choice-desc { font-size: 13px; line-height: 1.5; color: var(--text-dim); }
+.choice-icon { font-size: 14px; color: var(--accent); line-height: 1; }
 
 .setup-top { margin: -8px 0 8px -8px; }
 .home-btn { padding: 6px 8px; font-size: 13px; }
 
-.library { grid-column: 1 / -1; margin-top: 8px; }
+.library { margin: 0; }
 .library h2 {
   font-size: 12px;
   font-weight: 700;
@@ -393,14 +395,16 @@ button.choice:focus-visible { outline: 2px solid var(--accent); outline-offset: 
   margin: 0 0 10px;
 }
 .library ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.library li { display: flex; align-items: stretch; gap: 4px; }
+/* the × sits inside the card's corner (a button can't contain another button,
+   so it's layered on top of the card rather than nested in it) */
+.library li { position: relative; }
 button.library-item {
-  flex: 1;
+  width: 100%;
   min-width: 0;
   display: grid;
   gap: 4px;
   text-align: left;
-  padding: 14px 16px;
+  padding: 18px 56px 18px 20px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -422,15 +426,150 @@ button.library-item:hover { border-color: var(--accent-dim); background: var(--p
   border-radius: 2px;
   background: linear-gradient(to right, var(--accent) var(--pct, 0%), var(--border) var(--pct, 0%));
 }
-button.library-remove { font-size: 18px; padding: 0 12px; }
+button.library-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 36px;
+  height: 36px;
+  min-height: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+button.library-remove:hover { color: var(--danger); background: var(--panel-2); }
 .library-cta { font-size: 12px; font-weight: 700; color: var(--accent); margin-top: 4px; }
+
+/* ---------- Reading habit (landing) ---------- */
+.habits {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+.habit-top { display: flex; align-items: center; gap: 20px; }
+.habit-ring { position: relative; width: 88px; height: 88px; flex: none; }
+.habit-ring-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.habit-ring-svg circle { fill: none; stroke-width: 7; }
+.ring-track { stroke: var(--panel-2); }
+.ring-fill { stroke: var(--accent); stroke-linecap: round; transition: stroke-dasharray 0.6s ease; }
+.ring-fill.done { stroke: var(--accent-hover); }
+.habit-ring-text {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  line-height: 1.1;
+}
+.habit-ring-text strong { font-size: 22px; color: var(--text); }
+.habit-ring-text span { font-size: 11px; color: var(--text-dim); }
+.habit-info { flex: 1; min-width: 0; }
+.habit-streak { display: flex; align-items: baseline; gap: 6px; font-size: 15px; color: var(--text-dim); }
+.habit-streak strong { font-size: 26px; color: var(--text); font-variant-numeric: tabular-nums; }
+.habit-flame { font-size: 20px; }
+.habit-flame.cold { filter: grayscale(1); opacity: 0.5; }
+.habit-sub { margin: 4px 0 2px; font-size: 13px; color: var(--text); }
+.habit-meta { margin: 0 0 10px; font-size: 12px; color: var(--text-dim); }
+.habit-goal { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-dim); }
+.habit-goal select {
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+.heatmap {
+  --cell: 13px;
+  --gap: 3px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: ". months" "days grid" ". legend";
+  column-gap: 6px;
+  row-gap: 4px;
+  margin-top: 18px;
+  overflow: hidden;
+}
+.heat-months {
+  grid-area: months;
+  display: grid;
+  grid-template-columns: repeat(var(--weeks), var(--cell));
+  gap: var(--gap);
+  font-size: 10px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.heat-days {
+  grid-area: days;
+  display: grid;
+  grid-template-rows: repeat(7, var(--cell));
+  gap: var(--gap);
+  font-size: 10px;
+  line-height: var(--cell);
+  color: var(--text-dim);
+}
+.heat-grid {
+  grid-area: grid;
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, var(--cell));
+  grid-auto-columns: var(--cell);
+  gap: var(--gap);
+}
+.heat-cell {
+  width: var(--cell);
+  height: var(--cell);
+  border-radius: 3px;
+  background: var(--panel-2);
+}
+.heat-cell[data-level="1"] { background: #3a3124; }
+.heat-cell[data-level="2"] { background: #5b4a33; }
+.heat-cell[data-level="3"] { background: #9c7f52; }
+.heat-cell[data-level="4"] { background: var(--accent); }
+.heat-cell.future { background: transparent; }
+.heat-cell.today { outline: 1px solid var(--text-dim); outline-offset: 1px; }
+.heat-legend {
+  grid-area: legend;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--gap);
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+.heat-legend span:first-child { margin-right: 4px; }
+.heat-legend span:last-child { margin-left: 4px; }
+
+/* goal-reached toast in the reader */
+#stage { position: relative; }
+.toast {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translate(-50%, -8px);
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 700;
+  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index: 5;
+  white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 /* ---------- Touch devices ---------- */
 button, select, input, textarea { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 @media (hover: none) {
   .kbd-hints { display: none; }
   /* hover styles stick after a tap on phones; keep them off */
-  button.choice:hover:not(:disabled) { transform: none; background: var(--panel); border-color: var(--border); }
+  button.choice:hover:not(:disabled) { color: var(--text-dim); border-color: var(--border); }
   button.library-item:hover { background: var(--panel); border-color: var(--border); }
   button.ghost:hover { color: var(--text-dim); }
 }
@@ -438,8 +577,8 @@ button, select, input, textarea { touch-action: manipulation; -webkit-tap-highli
 /* ---------- Phones ---------- */
 @media (max-width: 600px) {
   .wrap { padding: 20px 16px 40px; }
-  h1 { font-size: 18px; }
-  .subtitle { margin-bottom: 16px; }
+  h1 { font-size: 20px; }
+  .app-header { margin-bottom: 16px; }
   .panel { padding: 16px; }
 
   /* 16px+ stops iOS zooming in when a field is focused */
@@ -470,13 +609,20 @@ button, select, input, textarea { touch-action: manipulation; -webkit-tap-highli
   .book-title { flex-basis: 100%; white-space: normal; }
   .book-nav { flex-basis: 100%; }
 
-  .landing { gap: 12px; grid-template-columns: 1fr; }
-  button.choice { padding: 20px 18px; }
+  .landing { gap: 14px; }
+  .choices button.choice { flex: 1 1 0; justify-content: center; }
+  .habits { padding: 16px; }
+  button.library-item { padding: 16px 52px 16px 16px; }
+  button.library-remove { width: 40px; height: 40px; top: 6px; right: 6px; }
+  .habit-top { gap: 14px; align-items: flex-start; }
+  .habit-ring { width: 72px; height: 72px; }
+  .habit-ring-text strong { font-size: 18px; }
+  .heatmap { --cell: 11px; }
   .library-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* While reading, give the text the whole screen. */
   body.reading .wrap { padding-top: 12px; padding-bottom: 12px; }
-  body.reading h1, body.reading .subtitle, body.reading .book-status { display: none; }
+  body.reading .app-header, body.reading .book-status { display: none; }
   body.reading #stage { padding: 14px; margin-bottom: 0; }
   .reader {
     font-size: 19px;
