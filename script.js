@@ -267,8 +267,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
     currentChunk = 0;
     pausedRemaining = null;
     liveWpm.textContent = `${wpmSlider.value} wpm`;
-    setupPanel.style.display = 'none';
-    stagePanel.classList.add('active');
+    showView('stage');
     play();
   }
 
@@ -296,8 +295,173 @@ The goal of a tool like this is not to turn every reader into a machine that con
   backBtn.addEventListener('click', () => {
     clearTimeout(timer);
     playing = false;
-    stagePanel.classList.remove('active');
-    setupPanel.style.display = 'block';
+    showView('setup');
+  });
+
+  // ---- Views: landing (choose source) -> setup (text + settings) -> stage (reader) ----
+  const landing = document.getElementById('landing');
+  const pasteChoice = document.getElementById('pasteChoice');
+  const bookChoice = document.getElementById('bookChoice');
+  const library = document.getElementById('library');
+  const libraryList = document.getElementById('libraryList');
+  const homeBtn = document.getElementById('homeBtn');
+
+  let mode = 'paste';  // 'paste' | 'book'
+  let pastedText = ''; // kept separately so a book passage never overwrites what you pasted
+
+  function showView(name) {
+    landing.hidden = name !== 'landing';
+    setupPanel.hidden = name !== 'setup';
+    stagePanel.classList.toggle('active', name === 'stage');
+    if (name === 'landing') renderLibrary();
+  }
+
+  // Saved books on the landing page, with how far you've got in each.
+  let libraryRender = 0;
+  async function renderLibrary() {
+    const token = ++libraryRender;
+    const books = await window.Library.list();
+    if (token !== libraryRender) return; // a newer render started meanwhile
+    libraryList.innerHTML = '';
+
+    // Books with a saved reading position but no stored copy (e.g. opened before books were
+    // saved, or storage was cleared): still list them, and ask for the file to continue.
+    const saved = new Set(books.map(b => b.title));
+    const orphans = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('rereader:pos:')) {
+          const title = key.slice('rereader:pos:'.length);
+          if (!saved.has(title)) orphans.push(title);
+        }
+      }
+    } catch (e) {}
+
+    library.hidden = !books.length && !orphans.length;
+    for (const title of orphans) {
+      const li = document.createElement('li');
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'library-item';
+      const t = document.createElement('span');
+      t.className = 'library-title';
+      t.textContent = title;
+      const meta = document.createElement('span');
+      meta.className = 'library-meta';
+      meta.textContent = 'Open the file again to continue where you left off';
+      const cta = document.createElement('span');
+      cta.className = 'library-cta';
+      cta.textContent = 'Choose file →';
+      open.append(t, meta, cta);
+      open.addEventListener('click', () => bookFile.click());
+
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'ghost library-remove';
+      remove.setAttribute('aria-label', `Forget ${title}`);
+      remove.title = 'Forget this book';
+      remove.textContent = '×';
+      remove.addEventListener('click', () => {
+        try { localStorage.removeItem(positionKey(title)); } catch (e) {}
+        renderLibrary();
+      });
+      li.append(open, remove);
+      libraryList.appendChild(li);
+    }
+
+    for (const b of books) {
+      let pos = null;
+      try { pos = parseInt(localStorage.getItem(positionKey(b.title)), 10); } catch (e) {}
+      const idx = Number.isInteger(pos) && pos >= 0 && pos < b.parts.length ? pos : null;
+      const pct = idx === null ? 0 : Math.round((idx / b.parts.length) * 100);
+
+      const li = document.createElement('li');
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'library-item';
+      const title = document.createElement('span');
+      title.className = 'library-title';
+      title.textContent = b.title;
+      const meta = document.createElement('span');
+      meta.className = 'library-meta';
+      meta.textContent = idx === null
+        ? `Not started · ${b.parts.length} passages`
+        : `${b.parts[idx].chapter || b.parts[idx].label} · ${pct}%`;
+      const bar = document.createElement('span');
+      bar.className = 'library-progress';
+      bar.style.setProperty('--pct', `${pct}%`);
+      const cta = document.createElement('span');
+      cta.className = 'library-cta';
+      cta.textContent = idx === null ? 'Start reading →' : 'Continue →';
+      open.append(title, meta, bar, cta);
+      open.addEventListener('click', () => openSavedBook(b.id));
+
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'ghost library-remove';
+      remove.setAttribute('aria-label', `Remove ${b.title}`);
+      remove.title = 'Remove from your books';
+      remove.textContent = '×';
+      remove.addEventListener('click', async () => {
+        if (!confirm(`Remove "${b.title}" from your books? Your reading position will be forgotten.`)) return;
+        await window.Library.remove(b.id);
+        try { localStorage.removeItem(positionKey(b.title)); } catch (e) {}
+        if (book && book.title === b.title) book = null;
+        renderLibrary();
+      });
+
+      li.append(open, remove);
+      libraryList.appendChild(li);
+    }
+  }
+
+  function enterBook(loaded, extraMsg) {
+    book = loaded;
+    bookTitle.textContent = book.title;
+    populateParts();
+    const saved = loadPosition();
+    partSelect.value = String(saved !== null ? saved : book.start);
+    setMode('book');
+    showView('setup');
+    setStatus([saved !== null ? 'Resuming where you left off.' : '', extraMsg || ''].filter(Boolean).join(' '));
+  }
+
+  async function openSavedBook(id) {
+    const rec = await window.Library.get(id);
+    if (!rec) { setStatus('That book could not be loaded. Try opening the file again.', true); renderLibrary(); return; }
+    window.Library.touch(id);
+    enterBook({ title: rec.title, parts: rec.parts, start: rec.start || 0 });
+  }
+
+  function setMode(next) {
+    mode = next;
+    bookBar.hidden = mode !== 'book';
+    sampleBtn.hidden = clearBtn.hidden = mode === 'book';
+    inputText.placeholder = mode === 'book' ? '' : 'Paste ~1000 words here...';
+    if (mode === 'paste') {
+      nextPassageBtn.hidden = true;
+      inputText.value = pastedText;
+      updateCounts();
+    } else {
+      showPart(parseInt(partSelect.value, 10));
+    }
+  }
+
+  inputText.addEventListener('input', () => { if (mode === 'paste') pastedText = inputText.value; });
+  sampleBtn.addEventListener('click', () => { pastedText = inputText.value; });
+  clearBtn.addEventListener('click', () => { pastedText = ''; });
+
+  pasteChoice.addEventListener('click', () => {
+    setStatus('');
+    setMode('paste');
+    showView('setup');
+    inputText.focus();
+  });
+  bookChoice.addEventListener('click', () => bookFile.click());
+  homeBtn.addEventListener('click', () => {
+    setStatus('');
+    showView('landing');
   });
 
   // ---- Books (.epub / .txt): only one ~1000-word passage is loaded into the reader at a time ----
@@ -306,7 +470,6 @@ The goal of a tool like this is not to turn every reader into a machine that con
   const partSelect = document.getElementById('partSelect');
   const prevPartBtn = document.getElementById('prevPartBtn');
   const nextPartBtn = document.getElementById('nextPartBtn');
-  const openBookBtn = document.getElementById('openBookBtn');
   const bookFile = document.getElementById('bookFile');
   const bookStatus = document.getElementById('bookStatus');
   const nextPassageBtn = document.getElementById('nextPassageBtn');
@@ -337,7 +500,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
     inputText.value = book.parts[idx].text;
     prevPartBtn.disabled = idx === 0;
     nextPartBtn.disabled = idx === book.parts.length - 1;
-    nextPassageBtn.hidden = idx === book.parts.length - 1;
+    nextPassageBtn.hidden = mode !== 'book' || idx === book.parts.length - 1;
     savePosition(idx);
     updateCounts();
   }
@@ -366,26 +529,22 @@ The goal of a tool like this is not to turn every reader into a machine that con
     });
   }
 
-  openBookBtn.addEventListener('click', () => bookFile.click());
 
   bookFile.addEventListener('change', async () => {
     const file = bookFile.files[0];
     bookFile.value = '';
     if (!file) return;
-    openBookBtn.disabled = true;
+    bookChoice.disabled = true;
     setStatus(`Reading ${file.name}…`);
     try {
-      book = await window.Book.load(file);
-      bookTitle.textContent = book.title;
-      populateParts();
-      bookBar.hidden = false;
-      const saved = loadPosition();
-      showPart(saved !== null ? saved : book.start);
-      setStatus(`${book.parts.length} passages found${saved !== null ? ' — resuming where you left off' : ''}.`);
+      const loaded = await window.Book.load(file);
+      const stored = await window.Library.save(loaded);
+      enterBook(loaded, `${loaded.parts.length} passages found.` +
+        (stored ? '' : ' (Couldn\'t save it to your books — browser storage is unavailable.)'));
     } catch (err) {
       setStatus(err.message || 'Could not read that file.', true);
     } finally {
-      openBookBtn.disabled = false;
+      bookChoice.disabled = false;
     }
   });
 
@@ -451,4 +610,5 @@ The goal of a tool like this is not to turn every reader into a machine that con
   updateChunkLabel();
   updateCounts();
   updatePresetActiveState();
+  renderLibrary();
 })();

@@ -12,9 +12,31 @@
 <body>
 <div class="wrap">
   <h1>Rereader</h1>
-  <p class="subtitle">Paste text, set your pace, and let the highlight pull your eyes through it.</p>
+  <p class="subtitle">Pick something to read, set your pace, and let the highlight pull your eyes through it.</p>
 
-  <div class="panel" id="setup">
+  <div class="landing" id="landing">
+    <button type="button" class="choice" id="pasteChoice">
+      <span class="choice-icon" aria-hidden="true">&#x270E;</span>
+      <span class="choice-title">Paste text</span>
+      <span class="choice-desc">An article, an essay, a few pages of anything. Around 1000 words works well.</span>
+    </button>
+    <button type="button" class="choice" id="bookChoice">
+      <span class="choice-icon" aria-hidden="true">&#x1F56E;</span>
+      <span class="choice-title">Open a book</span>
+      <span class="choice-desc">An .epub or .txt file. It's split into ~1000-word passages and remembers where you left off.</span>
+    </button>
+    <input type="file" id="bookFile" accept=".epub,.txt,application/epub+zip,text/plain" hidden>
+    <section class="library" id="library" hidden>
+      <h2>Your books</h2>
+      <ul id="libraryList"></ul>
+    </section>
+  </div>
+  <p class="hint book-status" id="bookStatus" hidden></p>
+
+  <div class="panel" id="setup" hidden>
+    <div class="setup-top">
+      <button type="button" class="ghost home-btn" id="homeBtn">&larr; Home</button>
+    </div>
     <div class="book-bar" id="bookBar" hidden>
       <div class="book-title" id="bookTitle"></div>
       <div class="book-nav">
@@ -43,8 +65,6 @@
 
     <div class="actions">
       <button class="primary" id="goBtn">Go</button>
-      <button class="ghost" id="openBookBtn">Open book (.epub / .txt)</button>
-      <input type="file" id="bookFile" accept=".epub,.txt,application/epub+zip,text/plain" hidden>
       <button class="ghost" id="sampleBtn">Load sample text</button>
       <button class="ghost" id="clearBtn">Clear text</button>
       <div class="meta">
@@ -52,7 +72,6 @@
         <span id="estTime">~0:00</span>
       </div>
     </div>
-    <p class="hint book-status" id="bookStatus" hidden></p>
     <p class="hint">Chunk size = how many words highlight together per beat. Speed is in words/minute — the beat interval is calculated as (chunk size ÷ speed).</p>
   </div>
 

@@ -293,3 +293,77 @@ kbd {
 }
 #partSelect:focus { outline: none; border-color: var(--accent-dim); }
 .book-status.error { color: var(--danger); }
+
+.landing {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+button.choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  text-align: left;
+  padding: 28px 24px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-weight: 400;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+button.choice:hover:not(:disabled) {
+  border-color: var(--accent-dim);
+  background: var(--panel-2);
+  transform: translateY(-1px);
+}
+button.choice:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.choice-icon { font-size: 22px; color: var(--accent); line-height: 1; }
+.choice-title { font-size: 17px; font-weight: 700; color: var(--text); }
+.choice-desc { font-size: 13px; line-height: 1.5; color: var(--text-dim); }
+
+.setup-top { margin: -8px 0 8px -8px; }
+.home-btn { padding: 6px 8px; font-size: 13px; }
+
+.library { grid-column: 1 / -1; margin-top: 8px; }
+.library h2 {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin: 0 0 10px;
+}
+.library ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.library li { display: flex; align-items: stretch; gap: 4px; }
+button.library-item {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 14px 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-weight: 400;
+}
+button.library-item:hover { border-color: var(--accent-dim); background: var(--panel-2); }
+.library-title {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.library-meta { font-size: 12px; color: var(--text-dim); }
+.library-progress {
+  height: 3px;
+  margin-top: 6px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--accent) var(--pct, 0%), var(--border) var(--pct, 0%));
+}
+button.library-remove { font-size: 18px; padding: 0 12px; }
+.library-cta { font-size: 12px; font-weight: 700; color: var(--accent); margin-top: 4px; }

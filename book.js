@@ -282,3 +282,64 @@
     },
   };
 })();
+
+// Library: books you've opened, saved (already parsed) in IndexedDB so they survive reloads.
+// Exposes window.Library.{list, get, save, touch, remove}. Every call fails soft: if storage
+// is unavailable (private window, blocked site data) the library just appears empty.
+(function () {
+  const DB_NAME = 'rereader', STORE = 'books';
+  let dbPromise = null;
+
+  function open() {
+    if (!dbPromise) {
+      dbPromise = new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: 'id' });
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      }).catch(err => { dbPromise = null; throw err; });
+    }
+    return dbPromise;
+  }
+
+  async function run(mode, fn) {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, mode);
+      const req = fn(tx.objectStore(STORE));
+      tx.oncomplete = () => resolve(req && req.result);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  }
+
+  window.Library = {
+    // newest first; each entry is { id, title, parts, start, openedAt }
+    async list() {
+      try {
+        const all = await run('readonly', st => st.getAll());
+        return (all || []).sort((a, b) => b.openedAt - a.openedAt);
+      } catch (e) { return []; }
+    },
+    async get(id) {
+      try { return await run('readonly', st => st.get(id)); } catch (e) { return null; }
+    },
+    async save(book) {
+      try {
+        await run('readwrite', st => st.put({
+          id: book.title, title: book.title, parts: book.parts, start: book.start, openedAt: Date.now(),
+        }));
+        return true;
+      } catch (e) { return false; }
+    },
+    async touch(id) {
+      try {
+        const rec = await run('readonly', st => st.get(id));
+        if (rec) { rec.openedAt = Date.now(); await run('readwrite', st => st.put(rec)); }
+      } catch (e) {}
+    },
+    async remove(id) {
+      try { await run('readwrite', st => st.delete(id)); } catch (e) {}
+    },
+  };
+})();
