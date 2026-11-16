@@ -5,13 +5,10 @@
 //                Reading speed, chunk size and reaction time play no part.
 //                The catch rate is put on a rating scale (50% = 1000, 90% ~ 1380, 95% ~ 1510)
 //                so differences near the top stay visible.
-//  Memory      - your self-graded memory checks (cloze), over your most recent 100.
-//                Got it = 1, missed it = 0, on the same scale as Attention.
 //  Consistency - lives in habits.js (Habits.consistency()): days you hit your goal, built up
 //                slowly and drained slowly. Rendered here alongside Attention.
 //
-// Exposes window.Rating.{hit, miss, falseTap, endPassage, current, render}
-// and window.Memory.{record, current}.
+// Exposes window.Rating.{hit, miss, falseTap, endPassage, current, render}.
 (function () {
   const KEY = 'rereader:attention';
   const WINDOW = 200;       // results that count toward Attention
@@ -75,26 +72,6 @@
     return { r: s.r, title: title(s.r), best: state.best, rate: s.rate, odd: s.odd, results: state.results.length };
   }
 
-  // ---------- Memory (self-graded cloze checks) ----------
-  const MEM_KEY = 'rereader:memory';
-  const MEM_WINDOW = 100;
-  let mem = (() => {
-    try { const m = JSON.parse(localStorage.getItem(MEM_KEY)); if (m && Array.isArray(m.results)) return m; } catch (e) {}
-    return { results: [] };
-  })();
-  function memStats() {
-    const got = mem.results.reduce((n, x) => n + x, 0);
-    const p = (got + PRIOR) / (mem.results.length + 2 * PRIOR);
-    return { r: Math.round(1000 + 400 * Math.log10(p / (1 - p))), rate: mem.results.length ? got / mem.results.length : 0, n: mem.results.length };
-  }
-  function memRecord(ok) {
-    const before = memStats().r;
-    mem.results.push(ok ? 1 : 0);
-    if (mem.results.length > MEM_WINDOW) mem.results.splice(0, mem.results.length - MEM_WINDOW);
-    try { localStorage.setItem(MEM_KEY, JSON.stringify(mem)); } catch (e) {}
-    return memStats().r - before;
-  }
-
   // ---------- landing-page card ----------
   const el = (tag, cls, text) => {
     const e = document.createElement(tag);
@@ -154,13 +131,6 @@
     if (state.history.length > 1) att.appendChild(sparkline(state.history.slice(-40).map(h => h.r)));
     container.appendChild(att);
 
-    // Memory
-    const m = memStats();
-    const mSub = m.n
-      ? `Remembered ${Math.round(m.rate * 100)}% of your last ${m.n} memory check${m.n === 1 ? '' : 's'}`
-      : 'Turn on “Memory check” to measure it.';
-    container.appendChild(scoreBlock('Memory', m.n ? String(m.r) : '—', '', mSub));
-
     // Consistency
     const c = window.Habits && window.Habits.consistency ? window.Habits.consistency() : { score: 0, practiceDays: 0 };
     const cSub = c.practiceDays
@@ -174,5 +144,4 @@
   }
 
   window.Rating = { hit, miss, falseTap, endPassage, current, render };
-  window.Memory = { record: memRecord, current: memStats };
 })();

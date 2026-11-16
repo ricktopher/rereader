@@ -299,103 +299,6 @@ The goal of a tool like this is not to turn every reader into a machine that con
 
   catchBtn.addEventListener('click', catchOdd);
 
-  // ---- Memory check (cloze) ----
-  // At the end of a passage: hide the text, show one sentence with a word blanked out, reveal it,
-  // and let the reader mark whether they remembered it. Feeds the Memory score.
-  const MEM_KEY = 'rereader:memcheck';
-  const memBtns = Array.from(document.querySelectorAll('#memOptions .preset-btn'));
-  const clozeEl = document.getElementById('cloze');
-  const clozeSentence = document.getElementById('clozeSentence');
-  const clozePrompt = document.getElementById('clozePrompt');
-  const clozeReveal = document.getElementById('clozeReveal');
-  const clozeGot = document.getElementById('clozeGot');
-  const clozeMissed = document.getElementById('clozeMissed');
-  const clozeSkip = document.getElementById('clozeSkip');
-  const stageControls = document.querySelector('.stage-controls');
-  const clozeLabel = document.getElementById('clozeLabel');
-  const MEM_COUNTS = [0, 1, 2, 3, 5];
-  let memCount = 3;
-  let clozeQueue = [];
-  let clozeIndex = 0;
-  let visitedChunks = new Set(); // chunks actually shown, so skipped-over sentences aren't asked
-
-  function setMemCount(n) {
-    memCount = MEM_COUNTS.includes(n) ? n : 3;
-    memBtns.forEach(b => {
-      const active = parseInt(b.dataset.mem, 10) === memCount;
-      b.classList.toggle('active', active);
-      b.setAttribute('aria-checked', String(active));
-    });
-    try { localStorage.setItem(MEM_KEY, String(memCount)); } catch (e) {}
-  }
-  function initMem() {
-    let saved = null;
-    try { saved = localStorage.getItem(MEM_KEY); } catch (e) {}
-    // older versions stored 'on' / 'off'
-    setMemCount(saved === 'off' ? 0 : saved === 'on' || saved === null ? 3 : parseInt(saved, 10));
-  }
-  memBtns.forEach(b => b.addEventListener('click', () => setMemCount(parseInt(b.dataset.mem, 10))));
-
-  const clozeOpen = () => !clozeEl.hidden;
-
-  function startCloze() {
-    if (!memCount) return false;
-    const size = parseInt(chunkSlider.value, 10);
-    clozeQueue = window.Cloze.pick(words, i => visitedChunks.has(Math.floor(i / size)), memCount);
-    clozeIndex = 0;
-    if (!clozeQueue.length) return false;
-    reader.hidden = true;
-    stageControls.hidden = true;
-    clozeEl.hidden = false;
-    showClozeCard();
-    return true;
-  }
-
-  function showClozeCard() {
-    const q = clozeQueue[clozeIndex];
-    clozeLabel.textContent = clozeQueue.length > 1
-      ? `Memory check · ${clozeIndex + 1} of ${clozeQueue.length}` : 'Memory check';
-    clozeSentence.textContent = '';
-    clozeSentence.append(document.createTextNode(q.before));
-    const blank = document.createElement('span');
-    blank.className = 'cloze-blank';
-    blank.textContent = '\u2002'.repeat(6); // fixed width: the blank doesn't hint at word length
-    blank.dataset.answer = q.answer;
-    clozeSentence.append(blank, document.createTextNode(q.after));
-    clozePrompt.textContent = "What's the missing word? Say it in your head, then reveal.";
-    clozeReveal.hidden = false;
-    clozeGot.hidden = clozeMissed.hidden = true;
-    clozeReveal.focus();
-  }
-
-  function revealCloze() {
-    const blank = clozeSentence.querySelector('.cloze-blank');
-    blank.textContent = blank.dataset.answer;
-    blank.classList.add('revealed');
-    clozePrompt.textContent = 'Did you remember it?';
-    clozeReveal.hidden = true;
-    clozeGot.hidden = clozeMissed.hidden = false;
-    clozeGot.focus();
-  }
-
-  function closeCloze(result) {
-    if (result !== undefined) {
-      const d = window.Memory.record(result);
-      const r = window.Memory.current().r;
-      showToast(`${result ? '🧠 Remembered' : 'Not this time'} · memory ${r} (${fmtDelta(d)})`, 2500, result ? 'hit' : 'miss');
-    }
-    if (++clozeIndex < clozeQueue.length) { showClozeCard(); return; }
-    clozeEl.hidden = true;
-    reader.hidden = false;
-    stageControls.hidden = false;
-    snapHighlight();
-  }
-
-  clozeReveal.addEventListener('click', revealCloze);
-  clozeGot.addEventListener('click', () => closeCloze(true));
-  clozeMissed.addEventListener('click', () => closeCloze(false));
-  clozeSkip.addEventListener('click', () => closeCloze());
-
   function buildChunks() {
     words = tokenize(inputText.value);
     if (oddEnabled) insertOddWords();
@@ -417,7 +320,6 @@ The goal of a tool like this is not to turn every reader into a machine that con
       chunkDurations.push(dur);
     }
     planOddWindows(size);
-    visitedChunks = new Set();
   }
 
   function renderReader() {
@@ -521,7 +423,6 @@ The goal of a tool like this is not to turn every reader into a machine that con
 
   function highlightChunk(idx) {
     const [start, end] = chunks[idx];
-    visitedChunks.add(idx);
     const spans = reader.querySelectorAll('.word');
     spans.forEach((s, i) => {
       s.classList.remove('current', 'read');
@@ -588,7 +489,6 @@ The goal of a tool like this is not to turn every reader into a machine that con
         syncWakeLock();
         playPauseBtn.textContent = 'Restart';
         backBtn.hidden = false;
-        startCloze();
         return;
       }
       if (playing) showAndSchedule();
@@ -641,9 +541,6 @@ The goal of a tool like this is not to turn every reader into a machine that con
     currentChunk = 0;
     pausedRemaining = null;
     liveWpm.textContent = `${wpmSlider.value} wpm`;
-    clozeEl.hidden = true;
-    reader.hidden = false;
-    stageControls.hidden = false;
     showView('stage');
     // Wait for the reader to press Play: show the first chunk, paused.
     clearTimeout(timer);
@@ -1009,14 +906,6 @@ The goal of a tool like this is not to turn every reader into a machine that con
 
   document.addEventListener('keydown', (e) => {
     if (!stagePanel.classList.contains('active')) return;
-    if (clozeOpen()) {
-      // Enter reveals; after that, Y / N mark it. Other reader shortcuts are off meanwhile.
-      if ((e.code === 'Enter' || e.code === 'NumpadEnter') && !clozeReveal.hidden) { e.preventDefault(); revealCloze(); }
-      else if (e.code === 'KeyY' && !clozeGot.hidden) closeCloze(true);
-      else if (e.code === 'KeyN' && !clozeMissed.hidden) closeCloze(false);
-      else if (e.code === 'Space') e.preventDefault();
-      return;
-    }
     if (e.code === 'Space') {
       e.preventDefault();
       playPauseBtn.click();
@@ -1039,7 +928,6 @@ The goal of a tool like this is not to turn every reader into a machine that con
   updatePresetActiveState();
   initCue();
   initOdd();
-  initMem();
   renderLibrary();
   renderHabits();
   renderRating();
