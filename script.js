@@ -134,8 +134,271 @@ The goal of a tool like this is not to turn every reader into a machine that con
   }
   cueBtns.forEach(b => b.addEventListener('click', () => setCue(b.dataset.cue)));
 
+  // ---- Toast messages over the reader ----
+  const toast = document.getElementById('toast');
+  let toastTimer = null;
+  function showToast(msg, ms = 2000, kind = '') {
+    toast.textContent = msg;
+    toast.dataset.kind = kind;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), ms);
+  }
+
+  // ---- Catch the odd word ----
+  // When on, an out-of-place word is inserted (display only; the source text is untouched)
+  // every 150-300 words. The reader has ~3s after the highlight reaches it to hit "Odd word!".
+  const ODD_KEY = 'rereader:odd';
+  const ODD_WORDS = ['pineapple', 'trombone', 'giraffe', 'penguin', 'saxophone', 'cactus', 'walrus',
+    'toaster', 'kangaroo', 'accordion', 'flamingo', 'hedgehog', 'submarine', 'marshmallow', 'harmonica',
+    'igloo', 'octopus', 'pretzel', 'tuba', 'zeppelin', 'avocado', 'waffle', 'llama', 'popcorn',
+    'skateboard', 'burrito', 'jellyfish', 'ukulele', 'spaghetti', 'hamster', 'trampoline', 'banjo'];
+  const ODD_WINDOW_MS = 3000;
+  const oddBtns = Array.from(document.querySelectorAll('#oddOptions .preset-btn'));
+  const catchBtn = document.getElementById('catchBtn');
+  const oddScore = document.getElementById('oddScore');
+  const oddKeyHint = document.getElementById('oddKeyHint');
+  let oddEnabled = false;
+  let odds = []; // { wi, word, chunk, first, last, state: 'pending'|'caught'|'missed' }
+  let falseTaps = 0;
+  let runStartRating = null;  // rating when the current run through the passage began
+  const ratingChip = document.getElementById('ratingChip');
+  const fmtDelta = d => (d > 0 ? `+${d}` : d < 0 ? `−${-d}` : '±0');
+
+  function setOddEnabled(on) {
+    oddEnabled = !!on;
+    oddBtns.forEach(b => {
+      const active = (b.dataset.odd === 'on') === oddEnabled;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-checked', String(active));
+    });
+    try { localStorage.setItem(ODD_KEY, oddEnabled ? 'on' : 'off'); } catch (e) {}
+  }
+  function initOdd() {
+    let saved = null;
+    try { saved = localStorage.getItem(ODD_KEY); } catch (e) {}
+    setOddEnabled(saved !== 'off');
+  }
+  oddBtns.forEach(b => b.addEventListener('click', () => setOddEnabled(b.dataset.odd === 'on')));
+
+  const endsSentence = w => /[.!?:;]["')\]]?$/.test(w.text) || /\n/.test(w.trail);
+
+  // Insert odd tokens into `words` at random mid-sentence spots.
+  function insertOddWords() {
+    if (words.length < 80) return;
+    const present = new Set(words.map(w => w.text.toLowerCase().replace(/[^a-z]/g, '')));
+    const pool = ODD_WORDS.filter(w => !present.has(w));
+    const out = [];
+    let next = 60 + Math.floor(Math.random() * 90); // first one after 60-150 words
+    let lastPick = '';
+    for (let i = 0; i < words.length; i++) {
+      // keep the last ~20 words clear so there's time to react before the passage ends
+      if (i >= next && i < words.length - 20 && i > 0 && !endsSentence(words[i - 1])) {
+        let pick;
+        do { pick = pool[Math.floor(Math.random() * pool.length)]; } while (pool.length > 1 && pick === lastPick);
+        lastPick = pick;
+        out.push({ text: pick, trail: ' ', odd: true });
+        next = i + 150 + Math.floor(Math.random() * 150);
+      }
+      out.push(words[i]);
+    }
+    words = out;
+  }
+
+  // After chunks are built: work out each odd word's chunk and its catch window.
+  function planOddWindows(size) {
+    odds = [];
+    falseTaps = 0;
+    words.forEach((w, wi) => {
+      if (!w.odd) return;
+      const chunk = Math.floor(wi / size);
+      let last = chunk, t = 0;
+      while (last < chunks.length - 1 && t + chunkDurations[last] < ODD_WINDOW_MS) { t += chunkDurations[last]; last++; }
+      // one chunk of grace before it, for readers whose eyes run slightly ahead
+      odds.push({ wi, word: w.text, chunk, first: Math.max(0, chunk - 1), last, state: 'pending' });
+    });
+  }
+
+  function oddSpan(o) { return reader.querySelectorAll('.word')[o.wi]; }
+
+  function updateOddScore() {
+    const active = oddEnabled && odds.length > 0;
+    catchBtn.hidden = !active;
+    oddScore.hidden = !active;
+    oddKeyHint.hidden = !active;
+    ratingChip.hidden = !active;
+    if (!active) return;
+    ratingChip.textContent = `${window.Rating.current().r}`;
+    ratingChip.title = `Attention (${window.Rating.current().title})`;
+    const seen = odds.filter(o => o.state !== 'pending').length;
+    const caught = odds.filter(o => o.state === 'caught').length;
+    oddScore.textContent = `🎯 ${caught}/${seen}`;
+  }
+
+  function markMissed(o) {
+    o.state = 'missed';
+    const span = oddSpan(o);
+    if (span) span.classList.add('odd-missed');
+    return window.Rating.miss();
+  }
+
+  function bumpChip(delta) {
+    ratingChip.dataset.dir = delta >= 0 ? 'up' : 'down';
+    ratingChip.classList.remove('bump'); void ratingChip.offsetWidth; ratingChip.classList.add('bump');
+  }
+
+  // Called whenever the highlight moves to chunk idx.
+  function oddOnChunk(idx) {
+    let missedNow = 0, delta = 0;
+    for (const o of odds) {
+      if (o.state !== 'pending') continue;
+      if (idx > o.last) { delta += markMissed(o); missedNow++; }
+    }
+    if (missedNow) {
+      showToast((missedNow > 1 ? `Missed ${missedNow} odd words` : 'Missed one — it was back there') + ` · ${fmtDelta(delta)}`, 1800, 'miss');
+      bumpChip(delta);
+    }
+    updateOddScore();
+  }
+
+  function catchOdd() {
+    if (!oddEnabled || !odds.length || !chunks.length) return;
+    const idx = Math.min(currentChunk, chunks.length - 1);
+    const o = odds.find(x => x.state === 'pending' && idx >= x.first && idx <= x.last);
+    if (!o) {
+      falseTaps++;
+      const d = window.Rating.falseTap();
+      showToast(`Nothing odd there · ${fmtDelta(d)}`, 1400, 'miss');
+      updateOddScore();
+      bumpChip(d);
+      catchBtn.classList.remove('shake'); void catchBtn.offsetWidth; catchBtn.classList.add('shake');
+      return;
+    }
+    o.state = 'caught';
+    const span = oddSpan(o);
+    if (span) span.classList.add('odd-caught');
+    const streak = (() => { let n = 0; for (let i = odds.indexOf(o); i >= 0 && odds[i].state === 'caught'; i--) n++; return n; })();
+    const d = window.Rating.hit();
+    showToast(`🎯 “${o.word}” caught${streak >= 3 ? ` · ${streak} in a row!` : ''} · ${fmtDelta(d)}`, 1800, 'hit');
+    updateOddScore();
+    bumpChip(d);
+  }
+
+  function finishOdd() {
+    if (!oddEnabled || !odds.length) return;
+    odds.filter(o => o.state === 'pending').forEach(markMissed);
+    window.Rating.endPassage();
+    updateOddScore();
+    const rNow = window.Rating.current().r;
+    const runDelta = runStartRating === null ? 0 : rNow - runStartRating;
+    const caught = odds.filter(o => o.state === 'caught');
+    showToast(`Passage done · caught ${caught.length}/${odds.length}` +
+      (falseTaps ? ` · ${falseTaps} false tap${falseTaps > 1 ? 's' : ''}` : '') +
+      ` · attention ${rNow} (${fmtDelta(runDelta)})`, 6000, 'hit');
+  }
+
+  catchBtn.addEventListener('click', catchOdd);
+
+  // ---- Memory check (cloze) ----
+  // At the end of a passage: hide the text, show one sentence with a word blanked out, reveal it,
+  // and let the reader mark whether they remembered it. Feeds the Memory score.
+  const MEM_KEY = 'rereader:memcheck';
+  const memBtns = Array.from(document.querySelectorAll('#memOptions .preset-btn'));
+  const clozeEl = document.getElementById('cloze');
+  const clozeSentence = document.getElementById('clozeSentence');
+  const clozePrompt = document.getElementById('clozePrompt');
+  const clozeReveal = document.getElementById('clozeReveal');
+  const clozeGot = document.getElementById('clozeGot');
+  const clozeMissed = document.getElementById('clozeMissed');
+  const clozeSkip = document.getElementById('clozeSkip');
+  const stageControls = document.querySelector('.stage-controls');
+  const clozeLabel = document.getElementById('clozeLabel');
+  const MEM_COUNTS = [0, 1, 2, 3, 5];
+  let memCount = 3;
+  let clozeQueue = [];
+  let clozeIndex = 0;
+  let visitedChunks = new Set(); // chunks actually shown, so skipped-over sentences aren't asked
+
+  function setMemCount(n) {
+    memCount = MEM_COUNTS.includes(n) ? n : 3;
+    memBtns.forEach(b => {
+      const active = parseInt(b.dataset.mem, 10) === memCount;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-checked', String(active));
+    });
+    try { localStorage.setItem(MEM_KEY, String(memCount)); } catch (e) {}
+  }
+  function initMem() {
+    let saved = null;
+    try { saved = localStorage.getItem(MEM_KEY); } catch (e) {}
+    // older versions stored 'on' / 'off'
+    setMemCount(saved === 'off' ? 0 : saved === 'on' || saved === null ? 3 : parseInt(saved, 10));
+  }
+  memBtns.forEach(b => b.addEventListener('click', () => setMemCount(parseInt(b.dataset.mem, 10))));
+
+  const clozeOpen = () => !clozeEl.hidden;
+
+  function startCloze() {
+    if (!memCount) return false;
+    const size = parseInt(chunkSlider.value, 10);
+    clozeQueue = window.Cloze.pick(words, i => visitedChunks.has(Math.floor(i / size)), memCount);
+    clozeIndex = 0;
+    if (!clozeQueue.length) return false;
+    reader.hidden = true;
+    stageControls.hidden = true;
+    clozeEl.hidden = false;
+    showClozeCard();
+    return true;
+  }
+
+  function showClozeCard() {
+    const q = clozeQueue[clozeIndex];
+    clozeLabel.textContent = clozeQueue.length > 1
+      ? `Memory check · ${clozeIndex + 1} of ${clozeQueue.length}` : 'Memory check';
+    clozeSentence.textContent = '';
+    clozeSentence.append(document.createTextNode(q.before));
+    const blank = document.createElement('span');
+    blank.className = 'cloze-blank';
+    blank.textContent = '\u2002'.repeat(6); // fixed width: the blank doesn't hint at word length
+    blank.dataset.answer = q.answer;
+    clozeSentence.append(blank, document.createTextNode(q.after));
+    clozePrompt.textContent = "What's the missing word? Say it in your head, then reveal.";
+    clozeReveal.hidden = false;
+    clozeGot.hidden = clozeMissed.hidden = true;
+    clozeReveal.focus();
+  }
+
+  function revealCloze() {
+    const blank = clozeSentence.querySelector('.cloze-blank');
+    blank.textContent = blank.dataset.answer;
+    blank.classList.add('revealed');
+    clozePrompt.textContent = 'Did you remember it?';
+    clozeReveal.hidden = true;
+    clozeGot.hidden = clozeMissed.hidden = false;
+    clozeGot.focus();
+  }
+
+  function closeCloze(result) {
+    if (result !== undefined) {
+      const d = window.Memory.record(result);
+      const r = window.Memory.current().r;
+      showToast(`${result ? '🧠 Remembered' : 'Not this time'} · memory ${r} (${fmtDelta(d)})`, 2500, result ? 'hit' : 'miss');
+    }
+    if (++clozeIndex < clozeQueue.length) { showClozeCard(); return; }
+    clozeEl.hidden = true;
+    reader.hidden = false;
+    stageControls.hidden = false;
+    snapHighlight();
+  }
+
+  clozeReveal.addEventListener('click', revealCloze);
+  clozeGot.addEventListener('click', () => closeCloze(true));
+  clozeMissed.addEventListener('click', () => closeCloze(false));
+  clozeSkip.addEventListener('click', () => closeCloze());
+
   function buildChunks() {
     words = tokenize(inputText.value);
+    if (oddEnabled) insertOddWords();
     const size = parseInt(chunkSlider.value, 10);
     const wpm = parseInt(wpmSlider.value, 10);
     const baseMsPerWord = 60000 / wpm;
@@ -153,6 +416,8 @@ The goal of a tool like this is not to turn every reader into a machine that con
       else if (/[,;:]["')\]]?$/.test(lastWord)) dur += baseMsPerWord * 0.6;
       chunkDurations.push(dur);
     }
+    planOddWindows(size);
+    visitedChunks = new Set();
   }
 
   function renderReader() {
@@ -256,6 +521,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
 
   function highlightChunk(idx) {
     const [start, end] = chunks[idx];
+    visitedChunks.add(idx);
     const spans = reader.querySelectorAll('.word');
     spans.forEach((s, i) => {
       s.classList.remove('current', 'read');
@@ -268,6 +534,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
 
     progressFill.style.width = `${Math.round(((idx + 1) / chunks.length) * 100)}%`;
     chunkPos.textContent = `${idx + 1} / ${chunks.length}`;
+    oddOnChunk(idx);
   }
 
   // ---- Habit tracking: count only time spent actually playing, plus words in finished chunks ----
@@ -311,13 +578,17 @@ The goal of a tool like this is not to turn every reader into a machine that con
     timer = setTimeout(() => {
       logPlayTime();
       const [cs, ce] = chunks[currentChunk];
-      window.Habits.record(0, ce - cs + 1);
+      let realWords = 0;
+      for (let k = cs; k <= ce; k++) if (!words[k].odd) realWords++;
+      window.Habits.record(0, realWords);
       currentChunk++;
       if (currentChunk >= chunks.length) {
+        finishOdd();
         playing = false;
         syncWakeLock();
         playPauseBtn.textContent = 'Restart';
         backBtn.hidden = false;
+        startCloze();
         return;
       }
       if (playing) showAndSchedule();
@@ -328,6 +599,12 @@ The goal of a tool like this is not to turn every reader into a machine that con
     if (currentChunk >= chunks.length) {
       currentChunk = 0;
       pausedRemaining = null;
+    }
+    if (currentChunk === 0 && pausedRemaining === null) {
+      // Fresh run through the passage. If odd words were already seen, re-roll them so a
+      // restart can't be farmed by remembering where they were.
+      if (odds.some(o => o.state !== 'pending')) { buildChunks(); renderReader(); }
+      runStartRating = window.Rating.current().r;
     }
     playing = true;
     syncWakeLock();
@@ -364,6 +641,9 @@ The goal of a tool like this is not to turn every reader into a machine that con
     currentChunk = 0;
     pausedRemaining = null;
     liveWpm.textContent = `${wpmSlider.value} wpm`;
+    clozeEl.hidden = true;
+    reader.hidden = false;
+    stageControls.hidden = false;
     showView('stage');
     // Wait for the reader to press Play: show the first chunk, paused.
     clearTimeout(timer);
@@ -420,9 +700,11 @@ The goal of a tool like this is not to turn every reader into a machine that con
     landing.hidden = name !== 'landing';
     setupPanel.hidden = name !== 'setup';
     stagePanel.classList.toggle('active', name === 'stage');
-    if (name === 'landing') { renderLibrary(); renderHabits(); }
+    if (name === 'landing') { renderLibrary(); renderHabits(); renderRating(); }
   }
 
+  const ratingCard = document.getElementById('ratingCard');
+  function renderRating() { window.Rating.render(ratingCard); }
   const habitsEl = document.getElementById('habits');
   function renderHabits() { window.Habits.render(habitsEl); }
   let habitsResize = null;
@@ -437,14 +719,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
   });
 
   // Celebrate reaching the daily goal mid-passage.
-  const toast = document.getElementById('toast');
-  let toastTimer = null;
-  window.Habits.onGoalReached(s => {
-    toast.textContent = `🔥 Daily goal reached! ${s.count} day streak`;
-    toast.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove('show'), 4000);
-  });
+  window.Habits.onGoalReached(s => showToast(`🔥 Daily goal reached! ${s.count} day streak`, 4000));
 
   // Saved books on the landing page, with how far you've got in each.
   const TRASH_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
@@ -734,6 +1009,14 @@ The goal of a tool like this is not to turn every reader into a machine that con
 
   document.addEventListener('keydown', (e) => {
     if (!stagePanel.classList.contains('active')) return;
+    if (clozeOpen()) {
+      // Enter reveals; after that, Y / N mark it. Other reader shortcuts are off meanwhile.
+      if ((e.code === 'Enter' || e.code === 'NumpadEnter') && !clozeReveal.hidden) { e.preventDefault(); revealCloze(); }
+      else if (e.code === 'KeyY' && !clozeGot.hidden) closeCloze(true);
+      else if (e.code === 'KeyN' && !clozeMissed.hidden) closeCloze(false);
+      else if (e.code === 'Space') e.preventDefault();
+      return;
+    }
     if (e.code === 'Space') {
       e.preventDefault();
       playPauseBtn.click();
@@ -741,6 +1024,9 @@ The goal of a tool like this is not to turn every reader into a machine that con
       seek(1);
     } else if (e.code === 'ArrowLeft') {
       seek(-1);
+    } else if ((e.code === 'Enter' || e.code === 'NumpadEnter') && oddEnabled && odds.length) {
+      e.preventDefault();
+      catchOdd();
     } else if (e.code === 'F4') {
       e.preventDefault();
       toggleFullscreen();
@@ -752,6 +1038,9 @@ The goal of a tool like this is not to turn every reader into a machine that con
   updateCounts();
   updatePresetActiveState();
   initCue();
+  initOdd();
+  initMem();
   renderLibrary();
   renderHabits();
+  renderRating();
 })();

@@ -47,6 +47,7 @@ h1 {
   letter-spacing: -0.01em;
   margin: 0 0 6px;
 }
+.subtitle .warning { color: var(--accent); letter-spacing: 0.02em; }
 .app-icon { width: 32px; height: 32px; border-radius: 8px; display: block; }
 .subtitle {
   color: var(--text-dim);
@@ -666,4 +667,105 @@ button, select, input, textarea { touch-action: manipulation; -webkit-tap-highli
   #playPauseBtn { flex: 1 1 100%; order: -1; }
   .stage-controls button.ghost { flex: 1 1 auto; padding: 10px 6px; white-space: nowrap; }
   .stage-controls .meta { width: 100%; justify-content: space-between; }
+}
+
+/* ---------- Catch the odd word ---------- */
+.field-hint { margin: 8px 0 0; font-size: 12px; line-height: 1.45; color: var(--text-dim); }
+.word.odd-caught { color: var(--accent); }
+.word.odd-missed {
+  color: var(--danger);
+  text-decoration: underline dotted var(--danger);
+  text-underline-offset: 4px;
+}
+#catchBtn.shake { animation: shake 0.35s ease; }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+.toast[data-kind="miss"] { background: var(--panel-2); color: var(--danger); border: 1px solid var(--border); }
+#oddScore { color: var(--accent); font-weight: 700; }
+@media (max-width: 600px) {
+  /* Play and Odd word! share the top row */
+  .stage-controls:has(#catchBtn:not([hidden])) #playPauseBtn { flex: 1 1 0; }
+  #catchBtn { flex: 1 1 0; order: -1; }
+}
+
+/* ---------- Attention rating ---------- */
+.rating-card {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px 24px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+.score { min-width: 0; display: flex; flex-direction: column; }
+.score + .score { border-left: 1px solid var(--border); padding-left: 24px; }
+.rating-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+.rating-value { display: flex; align-items: baseline; gap: 10px; margin-top: 4px; }
+.rating-value strong { font-size: 34px; line-height: 1.1; color: var(--text); font-variant-numeric: tabular-nums; }
+.rating-title { font-size: 15px; font-weight: 700; color: var(--accent); }
+.rating-sub { margin: 4px 0 0; font-size: 12px; color: var(--text-dim); }
+.rating-spark { width: 120px; height: 36px; margin-top: 10px; }
+.consistency-bar {
+  height: 6px;
+  margin-top: 12px;
+  border-radius: 3px;
+  background: linear-gradient(to right, var(--accent) var(--pct, 0%), var(--panel-2) var(--pct, 0%));
+}
+.spark-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.spark-dot { fill: var(--accent-hover); }
+
+#ratingChip {
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+#ratingChip::before { content: '◆ '; color: var(--accent); font-size: 10px; }
+#ratingChip.bump[data-dir="up"] { animation: chip-up 0.6s ease; }
+#ratingChip.bump[data-dir="down"] { animation: chip-down 0.6s ease; }
+@keyframes chip-up { 30% { color: var(--accent-hover); border-color: var(--accent); transform: translateY(-2px); } }
+@keyframes chip-down { 30% { color: var(--danger); border-color: var(--danger); transform: translateY(2px); } }
+
+@media (max-width: 600px) {
+  .rating-card { padding: 16px; grid-template-columns: 1fr; }
+  .score + .score { border-left: none; padding-left: 0; border-top: 1px solid var(--border); padding-top: 14px; }
+  .rating-value strong { font-size: 28px; }
+}
+
+/* ---------- Memory check (cloze) ---------- */
+.cloze { padding: 8px 4px 4px; }
+.cloze-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+.cloze-sentence { font-size: 21px; line-height: 1.75; color: var(--text); margin: 12px 0; }
+.cloze-blank {
+  display: inline-block;
+  min-width: 5em;
+  border-bottom: 2px solid var(--accent);
+  text-align: center;
+  line-height: 1.2;
+}
+.cloze-blank.revealed { color: var(--accent); font-weight: 700; min-width: 0; padding: 0 4px; }
+.cloze-prompt { font-size: 13px; color: var(--text-dim); margin: 0 0 14px; }
+.cloze-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+#stage:fullscreen .cloze-sentence { font-size: 28px; }
+@media (max-width: 600px) {
+  .cloze-sentence { font-size: 19px; }
+  .cloze-actions button:not(.ghost) { flex: 1 1 0; }
 }

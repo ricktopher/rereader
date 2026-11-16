@@ -57,6 +57,25 @@
     };
   }
 
+  // Consistency (0-100): long-run proof of practice, separate from the streak.
+  // Every day you hit your goal adds 1 day of credit; every day you don't drains 1/3 of a day,
+  // so a missed day costs a little and a long break slowly erodes it. Credit turns into a score
+  // with diminishing returns: 7 days -> 41, 30 days -> 75, 90 days -> 90.
+  const CREDIT_HALF = 10;     // credit (in days) at which the score reaches 50
+  const DRAIN_PER_DAY = 1 / 3;
+  function consistency() {
+    const goalDays = Object.keys(state.days).filter(k => state.days[k].ms / 60000 >= state.goalMin).sort();
+    if (!goalDays.length) return { score: 0, credit: 0, practiceDays: 0 };
+    const [y, m, dd] = goalDays[0].split('-').map(Number);
+    const today = startOfDay(new Date());
+    let credit = 0, practiceDays = 0;
+    for (let d = new Date(y, m - 1, dd); d <= today; d = addDays(d, 1)) {
+      if (goalMetOn(d)) { credit += 1; practiceDays++; }
+      else if (+d !== +today) credit = Math.max(0, credit - DRAIN_PER_DAY); // today isn't over yet
+    }
+    return { score: Math.round(100 * credit / (credit + CREDIT_HALF)), credit, practiceDays };
+  }
+
   // Called by the reader with time actually spent playing (ms) and words completed.
   function record(ms, words) {
     if (!(ms > 0) && !(words > 0)) return;
@@ -240,6 +259,7 @@
   }
 
   window.Habits = {
+    consistency,
     record,
     render,
     onGoalReached(fn) { goalListeners.push(fn); },

@@ -16,7 +16,7 @@
 <div class="wrap">
   <header class="app-header">
     <h1><img src="icon.svg" alt="" class="app-icon" width="32" height="32">Rereader</h1>
-    <p class="subtitle">Pick something to read, set your pace, and let the highlight pull your eyes through it.</p>
+    <p class="subtitle"><strong class="warning"><span aria-hidden="true">&#x26A0;&#xFE0F; </span>Warning!</strong> Regular usage of this app can reverse your brainrot! Use with extreme caution!</p>
   </header>
 
   <div class="landing" id="landing">
@@ -33,6 +33,7 @@
       </button>
     </div>
     <input type="file" id="bookFile" accept=".epub,.txt,application/epub+zip,text/plain" hidden>
+    <section class="rating-card" id="ratingCard" aria-label="Your scores"></section>
     <section class="habits" id="habits" aria-label="Reading habit"></section>
   </div>
   <p class="hint book-status" id="bookStatus" hidden></p>
@@ -82,6 +83,25 @@
           <button type="button" class="preset-btn" data-cue="none" role="radio">None</button>
         </div>
       </div>
+      <div class="field">
+        <label id="oddLabel">Catch the odd word</label>
+        <div class="presets" id="oddOptions" role="radiogroup" aria-labelledby="oddLabel">
+          <button type="button" class="preset-btn" data-odd="on" role="radio">On</button>
+          <button type="button" class="preset-btn" data-odd="off" role="radio">Off</button>
+        </div>
+        <p class="field-hint">An out-of-place word sneaks in every so often. Hit <strong>Odd word!</strong> (or Enter) when you spot it.</p>
+      </div>
+      <div class="field">
+        <label id="memLabel">Memory check</label>
+        <div class="presets" id="memOptions" role="radiogroup" aria-labelledby="memLabel">
+          <button type="button" class="preset-btn" data-mem="0" role="radio">Off</button>
+          <button type="button" class="preset-btn" data-mem="1" role="radio">1</button>
+          <button type="button" class="preset-btn" data-mem="2" role="radio">2</button>
+          <button type="button" class="preset-btn" data-mem="3" role="radio">3</button>
+          <button type="button" class="preset-btn" data-mem="5" role="radio">5</button>
+        </div>
+        <p class="field-hint">Cards per passage. Each one blanks a word from a sentence in a different part of what you just read.</p>
+      </div>
     </div>
 
     <div class="actions">
@@ -100,8 +120,20 @@
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
     <div class="reader" id="reader" data-cue="dot"></div>
+    <div class="cloze" id="cloze" hidden>
+      <div class="cloze-label" id="clozeLabel">Memory check</div>
+      <p class="cloze-sentence" id="clozeSentence"></p>
+      <p class="cloze-prompt" id="clozePrompt">What's the missing word? Say it in your head, then reveal.</p>
+      <div class="cloze-actions">
+        <button class="primary" id="clozeReveal">Reveal</button>
+        <button id="clozeGot" hidden>&#x2713; Got it</button>
+        <button id="clozeMissed" hidden>&#x2717; Missed it</button>
+        <button class="ghost" id="clozeSkip">Skip</button>
+      </div>
+    </div>
     <div class="stage-controls">
       <button id="playPauseBtn">Pause</button>
+      <button class="primary" id="catchBtn" hidden>&#x1F3AF; Odd word!</button>
       <button class="ghost" id="restartBtn">Restart</button>
       <button class="ghost" id="backBtn" hidden>Go back</button>
       <button class="ghost" id="nextPassageBtn" hidden>Next passage</button>
@@ -109,7 +141,9 @@
       <div class="meta">
         <span id="liveWpm">300 wpm</span>
         <span id="chunkPos">0 / 0</span>
-        <span class="kbd-hints"><kbd>space</kbd> play/pause &nbsp; <kbd>←</kbd> <kbd>→</kbd> seek &nbsp; <kbd>F4</kbd> full screen</span>
+        <span id="oddScore" hidden></span>
+        <span id="ratingChip" hidden></span>
+        <span class="kbd-hints"><kbd>space</kbd> play/pause &nbsp; <kbd>←</kbd> <kbd>→</kbd> seek &nbsp; <kbd>F4</kbd> full screen<span id="oddKeyHint" hidden> &nbsp; <kbd>Enter</kbd> odd word</span></span>
       </div>
     </div>
   </div>
@@ -118,6 +152,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="book.js"></script>
 <script src="habits.js"></script>
+<script src="rating.js"></script>
+<script src="cloze.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
