@@ -330,6 +330,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
       const span = document.createElement('span');
       span.className = 'word';
       span.dataset.idx = idx;
+      if (w.odd) span.dataset.odd = '1';
       span.textContent = w.text + w.trail;
       frag.appendChild(span);
     });
@@ -588,6 +589,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
   const libraryList = document.getElementById('libraryList');
   const homeBtn = document.getElementById('homeBtn');
 
+  const reviewPanel = document.getElementById('review');
   let mode = 'paste';  // 'paste' | 'book'
   let pastedText = ''; // kept separately so a book passage never overwrites what you pasted
 
@@ -596,8 +598,10 @@ The goal of a tool like this is not to turn every reader into a machine that con
     document.body.classList.toggle('reading', name === 'stage');
     landing.hidden = name !== 'landing';
     setupPanel.hidden = name !== 'setup';
+    reviewPanel.hidden = name !== 'review';
     stagePanel.classList.toggle('active', name === 'stage');
-    if (name === 'landing') { renderLibrary(); renderHabits(); renderRating(); }
+    if (name !== 'stage') document.getElementById('cardCapture').hidden = true;
+    if (name === 'landing') { renderLibrary(); renderHabits(); renderRating(); window.Flashcards.renderLanding(); }
   }
 
   const ratingCard = document.getElementById('ratingCard');
@@ -906,6 +910,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
 
   document.addEventListener('keydown', (e) => {
     if (!stagePanel.classList.contains('active')) return;
+    if (e.target.closest('input, textarea, select, dialog')) return; // typing in the card editor
     if (e.code === 'Space') {
       e.preventDefault();
       playPauseBtn.click();
@@ -928,6 +933,17 @@ The goal of a tool like this is not to turn every reader into a machine that con
   updatePresetActiveState();
   initCue();
   initOdd();
+  window.Flashcards.init({
+    reader,
+    stage: stagePanel,
+    showView,
+    isReviewVisible: () => !reviewPanel.hidden,
+    getSource: () => (mode === 'book' && book)
+      ? `${book.title} · ${book.parts[parseInt(partSelect.value, 10)].label}`
+      : 'Pasted text',
+    onSelect: () => { if (playing) pause(); },
+    toast: msg => showToast(msg, 2000, 'hit'),
+  });
   renderLibrary();
   renderHabits();
   renderRating();

@@ -33,6 +33,16 @@
       </button>
     </div>
     <input type="file" id="bookFile" accept=".epub,.txt,application/epub+zip,text/plain" hidden>
+    <section class="cards-card" id="cardsCard" hidden>
+      <div>
+        <div class="rating-label">Flash cards</div>
+        <div class="cards-stats" id="cardsStats"></div>
+      </div>
+      <div class="cards-actions">
+        <button type="button" class="ghost" id="browseBtn">Browse</button>
+        <button type="button" class="primary" id="reviewBtn">Review</button>
+      </div>
+    </section>
     <section class="rating-card" id="ratingCard" aria-label="Your scores"></section>
     <section class="habits" id="habits" aria-label="Reading habit"></section>
   </div>
@@ -105,8 +115,18 @@
     <p class="hint">Chunk size = how many words highlight together per beat. Speed is in words/minute — the beat interval is calculated as (chunk size ÷ speed).</p>
   </div>
 
+  <div class="panel" id="review" hidden>
+    <div class="review-top">
+      <button type="button" class="ghost home-btn" id="reviewHome">&larr; Home</button>
+      <span class="review-count" id="reviewCount"></span>
+    </div>
+    <div id="reviewBody"></div>
+    <div id="browseBody" hidden></div>
+  </div>
+
   <div class="panel" id="stage">
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <button type="button" class="card-capture" id="cardCapture" hidden>+ Flash card</button>
     <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
     <div class="reader" id="reader" data-cue="dot"></div>
     <div class="stage-controls">
@@ -127,10 +147,26 @@
   </div>
 </div>
 
+<dialog class="card-dialog" id="cardDialog" aria-labelledby="cardDialogTitle">
+  <h2 id="cardDialogTitle">New flash card</h2>
+  <label class="card-field-label" for="cardText">Text <span>— wrap words in [[double brackets]] to blank them</span></label>
+  <textarea id="cardText" rows="4"></textarea>
+  <div class="card-field-label">Preview <span>— tap a word to blank it, tap again to undo</span></div>
+  <div class="card-preview" id="cardPreview"></div>
+  <p class="card-source" id="cardSource"></p>
+  <div class="card-dialog-actions">
+    <button type="button" class="ghost card-delete" id="cardDelete" hidden>Delete</button>
+    <span class="card-save-hint" id="cardSaveHint">Blank at least one word</span>
+    <button type="button" class="ghost" id="cardCancel">Cancel</button>
+    <button type="button" class="primary" id="cardSave">Save card</button>
+  </div>
+</dialog>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="book.js"></script>
 <script src="habits.js"></script>
 <script src="rating.js"></script>
+<script src="flashcards.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
