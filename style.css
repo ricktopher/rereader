@@ -16,9 +16,10 @@
   --danger: #d99a85;
   --word-unread: #8f8574;
   --word-read: #cfc4b2;
-  /* Current-chunk highlight: an underline that slides under the words. */
-  --highlight: #d4b483;         /* underline colour */
+  /* Current-chunk cue (chosen in the app: underline, dot, or none). */
+  --highlight: #d4b483;         /* underline / dot colour */
   --highlight-thickness: 2px;   /* underline thickness */
+  --highlight-dot: 5px;         /* dot size */
   --highlight-text: #f3e6cf;    /* colour of the current words */
   --radius: 10px;
 }
@@ -294,17 +295,36 @@ button.ghost:hover { color: var(--text); }
               opacity 0.15s ease;
 }
 .highlight-box.snap { transition: opacity 0.15s ease; }
-/* the box spans the words; only its bottom edge is drawn, as the underline */
+/* The box spans the chunk's words and is never painted itself;
+   its ::after draws the cue chosen on the reader's data-cue attribute. */
 .highlight-box::after {
   content: '';
   position: absolute;
+  background: var(--highlight);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+/* underline: a bar along the bottom of every line the chunk spans */
+.reader[data-cue="underline"] .highlight-box::after {
   left: 2px;
   right: 0;
   bottom: 0;
   height: var(--highlight-thickness);
   border-radius: var(--highlight-thickness);
-  background: var(--highlight);
+  opacity: 1;
 }
+/* dot: one dot, centred under the line holding most of the chunk */
+.reader[data-cue="dot"] .highlight-box::after {
+  left: 50%;
+  bottom: -4px;
+  width: var(--highlight-dot);
+  height: var(--highlight-dot);
+  margin-left: calc(var(--highlight-dot) / -2);
+  border-radius: 50%;
+}
+.reader[data-cue="dot"] .highlight-box.lead::after { opacity: 1; }
+/* none: no mark at all, only the brighter text colour of the current words */
+.reader[data-cue="none"] .highlight-box { display: none; }
 
 .stage-controls {
   display: flex;

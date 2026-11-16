@@ -11,6 +11,7 @@
   const clearBtn = document.getElementById('clearBtn');
   const wpmPresets = document.getElementById('wpmPresets');
   const presetBtns = Array.from(wpmPresets.querySelectorAll('.preset-btn'));
+  const cueBtns = Array.from(document.querySelectorAll('#cueOptions .preset-btn'));
 
   const setupPanel = document.getElementById('setup');
   const stagePanel = document.getElementById('stage');
@@ -113,6 +114,26 @@ The goal of a tool like this is not to turn every reader into a machine that con
     });
   });
 
+  // ---- Reading cue: how the current chunk is marked (underline / dot / none = text colour only) ----
+  const CUE_KEY = 'rereader:cue';
+  const CUES = ['underline', 'dot', 'none'];
+  function setCue(cue) {
+    if (!CUES.includes(cue)) cue = 'dot';
+    reader.dataset.cue = cue;
+    cueBtns.forEach(b => {
+      const on = b.dataset.cue === cue;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-checked', String(on));
+    });
+    try { localStorage.setItem(CUE_KEY, cue); } catch (e) {}
+  }
+  function initCue() {
+    let saved = null;
+    try { saved = localStorage.getItem(CUE_KEY); } catch (e) {}
+    setCue(saved || 'dot');
+  }
+  cueBtns.forEach(b => b.addEventListener('click', () => setCue(b.dataset.cue)));
+
   function buildChunks() {
     words = tokenize(inputText.value);
     const size = parseInt(chunkSlider.value, 10);
@@ -192,8 +213,15 @@ The goal of a tool like this is not to turn every reader into a machine that con
       }
     });
 
+    // The cue is a single dot, drawn only under the line holding most of the chunk.
+    let leadIdx = 0;
+    lines.forEach((l, i) => {
+      if (l.right - l.left > lines[leadIdx].right - lines[leadIdx].left) leadIdx = i;
+    });
+
     lines.forEach((l, i) => {
       const box = getHighlightBox(i);
+      box.classList.toggle('lead', i === leadIdx);
       const left = l.left - readerRect.left + reader.scrollLeft - 2;
       const top = l.top - readerRect.top + reader.scrollTop - 1;
       const width = Math.max(0, (l.right - l.left) - 1);
@@ -251,6 +279,29 @@ The goal of a tool like this is not to turn every reader into a machine that con
     if (ms > 0) window.Habits.record(ms, 0);
   }
 
+  // ---- Keep the screen awake while playing (Screen Wake Lock API) ----
+  // Unsupported browsers just behave as before. The browser drops the lock by itself when
+  // the page is hidden; we auto-pause then, so it's re-requested on the next Play.
+  let wakeLock = null;
+  let wakeLockPending = false;
+  async function syncWakeLock() {
+    if (!('wakeLock' in navigator)) return;
+    if (playing && !wakeLock && !wakeLockPending) {
+      wakeLockPending = true;
+      try {
+        const lock = await navigator.wakeLock.request('screen');
+        lock.addEventListener('release', () => { if (wakeLock === lock) wakeLock = null; });
+        wakeLock = lock;
+      } catch (e) { /* denied, low battery mode, or page not visible */ }
+      wakeLockPending = false;
+      if (!playing) syncWakeLock(); // paused while the request was in flight
+    } else if (!playing && wakeLock) {
+      const lock = wakeLock;
+      wakeLock = null;
+      try { await lock.release(); } catch (e) {}
+    }
+  }
+
   function showAndSchedule() {
     highlightChunk(currentChunk);
     const dur = pausedRemaining != null ? pausedRemaining : chunkDurations[currentChunk];
@@ -264,6 +315,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
       currentChunk++;
       if (currentChunk >= chunks.length) {
         playing = false;
+        syncWakeLock();
         playPauseBtn.textContent = 'Restart';
         backBtn.hidden = false;
         return;
@@ -278,6 +330,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
       pausedRemaining = null;
     }
     playing = true;
+    syncWakeLock();
     playPauseBtn.textContent = 'Pause';
     backBtn.hidden = true;
     showAndSchedule();
@@ -286,6 +339,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
   function pause() {
     logPlayTime();
     playing = false;
+    syncWakeLock();
     playPauseBtn.textContent = 'Play';
     backBtn.hidden = false;
     clearTimeout(timer);
@@ -314,6 +368,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
     // Wait for the reader to press Play: show the first chunk, paused.
     clearTimeout(timer);
     playing = false;
+    syncWakeLock();
     playPauseBtn.textContent = 'Play';
     backBtn.hidden = false;
     highlightChunk(currentChunk);
@@ -344,6 +399,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
   backBtn.addEventListener('click', () => {
     clearTimeout(timer);
     playing = false;
+    syncWakeLock();
     showView('setup');
   });
 
@@ -692,6 +748,7 @@ The goal of a tool like this is not to turn every reader into a machine that con
   updateChunkLabel();
   updateCounts();
   updatePresetActiveState();
+  initCue();
   renderLibrary();
   renderHabits();
 })();

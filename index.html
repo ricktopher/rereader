@@ -74,6 +74,14 @@
         </div>
         <input type="hidden" id="chunkSize" value="3">
       </div>
+      <div class="field">
+        <label id="cueLabel">Cue</label>
+        <div class="presets cue-options" id="cueOptions" role="radiogroup" aria-labelledby="cueLabel">
+          <button type="button" class="preset-btn" data-cue="underline" role="radio">Underline</button>
+          <button type="button" class="preset-btn" data-cue="dot" role="radio">Dot</button>
+          <button type="button" class="preset-btn" data-cue="none" role="radio">None</button>
+        </div>
+      </div>
     </div>
 
     <div class="actions">
@@ -91,7 +99,7 @@
   <div class="panel" id="stage">
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-    <div class="reader" id="reader"></div>
+    <div class="reader" id="reader" data-cue="dot"></div>
     <div class="stage-controls">
       <button id="playPauseBtn">Pause</button>
       <button class="ghost" id="restartBtn">Restart</button>
