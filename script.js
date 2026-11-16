@@ -711,22 +711,25 @@ The goal of a tool like this is not to turn every reader into a machine that con
   // iPhone Safari (and some embedded browsers) can't put a page element in full screen.
   if (!(document.fullscreenEnabled || document.webkitFullscreenEnabled)) fullscreenBtn.hidden = true;
 
+  // Re-place the cue instantly (no slide) after the text reflows. Once a passage has
+  // finished, currentChunk points one past the end, so clamp to the last chunk.
+  function snapHighlight() {
+    if (!chunks.length) return;
+    const [start, end] = chunks[Math.min(currentChunk, chunks.length - 1)];
+    highlightBoxes.forEach(b => b.dataset.active = '0');
+    positionHighlight(start, end);
+  }
+
   document.addEventListener('fullscreenchange', () => {
     fullscreenBtn.textContent = document.fullscreenElement === stagePanel ? 'Exit full screen' : 'Full screen';
     // Font size and layout change between windowed/full screen, so the
     // sliding highlight needs an instant (non-sliding) reposition.
-    if (chunks.length) {
-      const [start, end] = chunks[currentChunk];
-      highlightBoxes.forEach(b => b.dataset.active = '0');
-      positionHighlight(start, end);
-    }
+    snapHighlight();
   });
 
   window.addEventListener('resize', () => {
-    if (!stagePanel.classList.contains('active') || !chunks.length) return;
-    const [start, end] = chunks[currentChunk];
-    highlightBoxes.forEach(b => b.dataset.active = '0'); // force instant reposition, no slide
-    positionHighlight(start, end);
+    if (!stagePanel.classList.contains('active')) return;
+    snapHighlight();
   });
 
   document.addEventListener('keydown', (e) => {
